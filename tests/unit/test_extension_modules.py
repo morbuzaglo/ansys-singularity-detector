@@ -5,6 +5,7 @@ remove(), and visualization.add_singularity_contours.
 
 import importlib.util
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,17 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 EXT = REPO / "extension"
 sys.path.insert(0, str(EXT))
+
+# The IronPython modules `from System import Double` -- stub the .NET namespace so
+# the CPython test process can import them.
+if "System" not in sys.modules:
+    _sysmod = types.ModuleType("System")
+
+    class _Double(object):
+        MaxValue = 1.7976931348623157e308
+
+    _sysmod.Double = _Double
+    sys.modules["System"] = _sysmod
 
 import mech_env  # noqa: E402
 
@@ -159,3 +171,62 @@ def test_add_contours_raises_if_nothing_created():
 
     with pytest.raises(RuntimeError):
         viz.add_singularity_contours(_Bad(), ext=None)
+
+
+class _Named(object):
+    def __init__(self, name):
+        self.Name = name
+        self.deleted = False
+
+    def Delete(self):
+        self.deleted = True
+
+
+class _AnRemove(object):
+    class Solution(object):
+        pass
+
+    def __init__(self, names):
+        self.Solution = type("S", (), {})()
+        self._kids = [_Named(n) for n in names]
+        self.Solution.Children = self._kids
+
+
+def test_remove_singularity_contours_deletes_only_ours():
+    viz = _load("visualization")
+    an = _AnRemove([viz._RESULT_NAMES[0], "User Equivalent Stress",
+                    viz._RESULT_NAMES[1], "Total Deformation", viz._RESULT_NAMES[2]])
+    removed = viz.remove_singularity_contours(an)
+    assert sorted(removed) == sorted(viz._RESULT_NAMES)
+    deleted = [k.Name for k in an._kids if k.deleted]
+    assert sorted(deleted) == sorted(viz._RESULT_NAMES)
+    assert not [k for k in an._kids if k.Name == "Total Deformation"][0].deleted
+
+
+class _Coll(object):
+    def __init__(self, ids):
+        self.Ids = ids
+        self.set = {}
+
+    def SetValues(self, nid, vals):
+        self.set[nid] = vals
+
+
+class _ResNoCsv(object):
+    class Analysis(object):
+        WorkingDir = "Z:/definitely/not/here"
+        MeshData = None
+
+
+def test_fill_collector_no_csv_fills_sentinel_and_does_not_raise(monkeypatch):
+    viz = _load("visualization")
+    monkeypatch.setattr(viz, "_MISSING_LOGGED", [False])
+    coll = _Coll([1, 2, 3])
+    r = _ResNoCsv()
+    r.Analysis = _ResNoCsv.Analysis()
+    # must NOT raise even though the file is absent
+    viz.fill_collector(r, coll, "raw_stress")
+    assert set(coll.set) == {1, 2, 3}
+    # every value is the .NET Double.MaxValue sentinel
+    import System
+    assert all(v == [System.Double.MaxValue] for v in coll.set.values())

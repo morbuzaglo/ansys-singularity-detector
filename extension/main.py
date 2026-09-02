@@ -44,7 +44,8 @@ if _HERE not in sys.path:
 from visualization import (evaluate_raw_stress,                         # noqa: F401
                            evaluate_singularity_confidence,             # noqa: F401
                            evaluate_singularity_filtered_stress,        # noqa: F401
-                           add_singularity_contours)
+                           add_singularity_contours,
+                           remove_singularity_contours)
 import visualization
 import mech_env
 
@@ -308,23 +309,36 @@ def _plan_sizes(model, settings):
     return sizes
 
 
-def _run_external(module, run_dir, status=None):
+def _run_external(module, run_dir, status=None, frac=0.9):
+    """Run `python -m devtools.<module> <run_dir>` in the repo venv.
+
+    Ansys' bundled IronPython subprocess cannot redirect stderr->stdout, so
+    stdout/stderr go to real files in run_dir and are read back."""
     py = _venv_python()
     if not py:
         return (127, "venv python not found -- set sd_config.json venv_python")
     cmd = [py, "-u", "-m", "devtools." + module, run_dir]
     _log("run: " + " ".join(cmd))
     if status is not None:
-        status.update(0.9, "analysing: %s ..." % module)
+        status.update(frac, "analysing: %s ..." % module)
+    out_path = os.path.join(run_dir, module + ".out")
+    err_path = os.path.join(run_dir, module + ".err")
     try:
-        p = subprocess.Popen(cmd, cwd=_repo(), stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT)
-        out, _e = p.communicate()
+        fo = open(out_path, "wb")
+        fe = open(err_path, "wb")
         try:
-            out = out.decode("utf-8", "replace")
-        except Exception:
-            out = str(out)
-        return (p.returncode, out)
+            p = subprocess.Popen(cmd, cwd=_repo(), stdout=fo, stderr=fe)
+            rc = p.wait()
+        finally:
+            fo.close()
+            fe.close()
+        txt = ""
+        for pth in (out_path, err_path):
+            try:
+                txt += open(pth, "rb").read().decode("utf-8", "replace")
+            except Exception:
+                pass
+        return (rc, txt)
     except Exception:
         return (1, traceback.format_exc())
 
@@ -423,19 +437,28 @@ def run_singularity_study(analysis):
 
     status = _Status()
     try:
+        # remove any stale SD result objects so Mechanical does not try to
+        # evaluate them on every level's solve (before contour_fields.csv exists)
+        try:
+            remove_singularity_contours(analysis)
+        except Exception:
+            pass
+
         import act_study
         summ = act_study.run(analysis, sizes, run_dir,
-                             progress=status.update, restore=False)
+                             progress=lambda f, m: status.update(0.05 + 0.75 * f, m),
+                             restore=False)
         if summ.get("status") != "PASS":
             _msgbox("Study did not complete: %s\nSee %s"
                     % (summ.get("status"), run_dir))
             return
 
-        for mod in ("analyze_study", "build_contours", "convergence_charts"):
-            rc, out = _run_external(mod, run_dir, status=status)
-            _log("%s rc=%s\n%s" % (mod, rc, out[-1500:]))
+        for mod, fr in (("analyze_study", 0.82), ("build_contours", 0.90),
+                        ("convergence_charts", 0.95)):
+            rc, out = _run_external(mod, run_dir, status=status, frac=fr)
+            _log("%s rc=%s\n%s" % (mod, rc, out[-1800:]))
             if rc != 0 and mod != "convergence_charts":
-                _msgbox("%s failed (rc=%s). See the ACT log." % (mod, rc))
+                _msgbox("%s failed (rc=%s).\n\n%s" % (mod, rc, out[-1200:]))
                 return
 
         status.update(0.96, "adding result contours...")

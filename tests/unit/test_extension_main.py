@@ -80,23 +80,26 @@ def test_run_external_builds_module_command(monkeypatch, tmp_path):
         {"repo_path": str(tmp_path), "venv_python": str(fake_py)}), encoding="utf-8")
 
     captured = {}
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
 
     class _P:
-        returncode = 0
-
         def __init__(self, cmd, **kw):
             captured["cmd"] = cmd
             captured["cwd"] = kw.get("cwd")
+            # the extension writes stdout/stderr to real files (no STDOUT redirect)
+            kw["stdout"].write(b"hello\n")
 
-        def communicate(self):
-            return (b"ok", b"")
+        def wait(self):
+            return 0
 
     monkeypatch.setattr(m.subprocess, "Popen", _P)
-    rc, out = m._run_external("analyze_study", str(tmp_path / "run"))
-    assert rc == 0 and out == "ok"
+    rc, out = m._run_external("analyze_study", str(run_dir))
+    assert rc == 0 and "hello" in out
     assert captured["cmd"][:1] == [str(fake_py)]
-    assert captured["cmd"][2:] == ["-m", "devtools.analyze_study", str(tmp_path / "run")]
+    assert captured["cmd"][2:] == ["-m", "devtools.analyze_study", str(run_dir)]
     assert captured["cwd"] == str(tmp_path)
+    assert (run_dir / "analyze_study.out").is_file()
 
 
 def test_run_external_without_venv_returns_127(monkeypatch, tmp_path):

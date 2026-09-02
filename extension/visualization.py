@@ -177,12 +177,18 @@ def load_field(csv_path=None, working_dir=None):
     raise IOError("contour field file not found; looked in: " + "; ".join(cands))
 
 
+_MISSING_LOGGED = [False]
+
+
 def fill_collector(result, collector, column, csv_path=None):
     """ACT <evaluate> helper: for each node id the collector asks about, look up
     the precomputed value by that node's physical coordinate and store it.
 
     ``column`` is one of 'raw_stress', 'confidence_pct', 'filtered_stress'.
-    A missing / Not-Recoverable value stores System.Double.MaxValue.
+    A missing / Not-Recoverable value -- and the whole file being absent (the
+    study has not been run yet, or Mechanical is re-evaluating mid-study) --
+    stores System.Double.MaxValue rather than raising, so the result just shows
+    "no data" instead of erroring on every solve.
     """
     from System import Double        # noqa: F401  (.NET, present in Mechanical)
 
@@ -191,7 +197,16 @@ def fill_collector(result, collector, column, csv_path=None):
         wd = result.Analysis.WorkingDir
     except Exception:
         wd = None
-    fld = load_field(csv_path, working_dir=wd)
+    try:
+        fld = load_field(csv_path, working_dir=wd)
+    except Exception:
+        if not _MISSING_LOGGED[0]:
+            _log("contour_fields.csv not available yet -- results show no data "
+                 "until a Singularity Study has finished")
+            _MISSING_LOGGED[0] = True
+        for nid in collector.Ids:
+            collector.SetValues(nid, [Double.MaxValue])
+        return
     try:
         mesh = result.Analysis.MeshData
     except Exception:
@@ -257,6 +272,27 @@ def add_singularity_contours(analysis, ext=None):
     if errs and not made:
         raise RuntimeError("could not create any Singularity Detector result: " + "; ".join(errs))
     return made
+
+
+def remove_singularity_contours(analysis):
+    """Delete our three result objects from the tree (used at the start of a
+    study run so Mechanical doesn't try to evaluate them on every level's
+    solve, before contour_fields.csv exists)."""
+    removed = []
+    try:
+        kids = list(analysis.Solution.Children)
+    except Exception:
+        kids = []
+    for k in kids:
+        try:
+            if str(k.Name) in _RESULT_NAMES:
+                k.Delete()
+                removed.append(str(k.Name))
+        except Exception:
+            pass
+    if removed:
+        _log("removed stale results: " + ", ".join(removed))
+    return removed
 
 
 # --- the three <evaluate> callbacks the extension XML points at ----------
