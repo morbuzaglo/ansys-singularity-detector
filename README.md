@@ -15,20 +15,22 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
 
 ## Status
 
-**Milestones 0–1 complete on 2025 R2.**
+**Milestones 0–2 complete on 2025 R2.**
 
 - **M0** `python devtools/run_milestone0.py` — no human in Mechanical: detect
   Ansys → licence preflight → PyMechanical embedded → import STEP → static
   structural → BC → mesh → solve → peak stress → JSON → exit.
 - **M1** `python devtools/run_milestone1.py --geometry test_models/bar.stp` —
   parametrised element-size sweep (`mesh_manager` + `result_extractor` +
-  `model_setup`), per-level `file.rst` preserved, mesh restored. Plain bar peak
-  stress converges (increment ratio 0.36); reaction = applied load at every
-  level.
+  `model_setup`).
+- **M2** `python devtools/study_controller.py --geometry test_models/bar.stp
+  --h0 0.01` — full convergence-study controller: N-level loop, per-level
+  `level_XX/{level.json,file.rst}` preserved, original mesh restored (even after
+  a failure), `convergence.csv`, guarded `cleanup()`, provisional trend verdict.
 
-`pytest tests --run-benchmarks` green. Tracker:
-[`docs/milestones.md`](docs/milestones.md). Next: **M2** full convergence-study
-controller (spec §22).
+`pytest tests --run-benchmarks` green (31 tests). Tracker:
+[`docs/milestones.md`](docs/milestones.md). Next: **M3** spatial cross-mesh
+stress mapping (spec §24/§25).
 
 Working Ansys target on this machine: **2025 R2 / 252** (primary spec target
 2025 R1 / 251 is not installed — [`docs/ansys_environment.md`](docs/ansys_environment.md)).

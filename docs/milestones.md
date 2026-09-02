@@ -8,6 +8,7 @@ tag `git tag -a milestone-N -m "..." && git push origin milestone-N`.
 |-----|-----------|
 | `milestone-0` | Autonomous Ansys runner, validated on 2025 R2 |
 | `milestone-1` | Parametrised mesh/solve sweep (`mesh_manager` + `result_extractor` + `model_setup`) |
+| `milestone-2` | Convergence-study controller: N-level loop, per-level `level_XX/`, restore, clean failure, `convergence.csv` |
 
 
 Order and definitions from the master spec (§51). Status is honest: only what has
@@ -18,8 +19,8 @@ actually been executed and verified is "done".
 | — | `act-builder` skill (global) | **done** | `~/.claude/skills/act-builder/` — SKILL.md, 10 knowledge notes, template, 4 official 251 PDFs + samples |
 | 0 | Autonomous Ansys Runner | **DONE (on 252)** | Full PASS 2026-09-02. `artifacts/2026-09-02_045523_milestone0_252/` — terminal → PyMechanical embedded → import STEP → static structural → BC → mesh → solve (Done) → peak σ 10.86 MPa (nominal 10) + δ ≈ 5 µm (analytic 5.0) → JSON → exit, no orphans. `pytest tests --run-benchmarks` = 10 passed, incl. `tests/mechanical/test_milestone0.py` with physics sanity bands. |
 | 1 | Mesh/Solve prototype | **DONE (on 252)** | Full PASS 2026-09-02. `artifacts/2026-09-02_051233_milestone1_252/`. 3-level global-size sweep on `bar.stp`: h=[5,4,3]mm → elems [80,225,297], peak σ_eqv [10.86, 11.86, 12.22] MPa (increments 1.00→0.36, ratio 0.36 → **converging**), max def flat at 4.98 µm (analytic 5.0), reaction = 1000 N at every level, per-level `file.rst` preserved, original mesh restored. `mech_env` / `mesh_manager` / `result_extractor` / `model_setup` modules. `pytest tests/mechanical/test_milestone1.py --run-benchmarks` green. |
-| 2 | Convergence Study Controller | next | Full study loop (spec §22): N levels + metadata dir per level, `study_controller`, restore-original test, handle failed solve cleanly. Generalise beyond the axial-bar setup. |
-| 3 | Spatial cross-mesh mapping | not started | |
+| 2 | Convergence Study Controller | **DONE (on 252)** | Full PASS 2026-09-02. `extension/study_runner.py` (Mechanical-side loop, per-level `level_XX/{level.json,file.rst}`, checkpointed summary, restore even on failure) + `devtools/study_controller.py` (`StudyConfig`/`StudyController`/`StudyResult`, preflight, `convergence.csv`, `cleanup()` guarded by spec §49, provisional `classify_convergence()`). 4-level study on `bar.stp`: all levels ok, `restore_ok=True`, csv written, verdict `convergent`. Bad-setup path handled cleanly (spec §50). `pytest tests/mechanical/test_milestone2.py --run-benchmarks` = 2 passed. |
+| 3 | Spatial cross-mesh mapping | next | Map σ(x, h_i) onto the finest reference mesh at common physical locations — DPF mapping operator + error-quantified fallback (spec §24/§25). Validate on an analytic field before it feeds classification. |
 | 4 | Primary singularity classifier | not started | |
 | 5 | Secondary metrics | not started | |
 | 6 | Confidence score | not started | |
