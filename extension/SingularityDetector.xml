@@ -1,14 +1,9 @@
 <!--
-  Ansys Mechanical ACT extension -- Automatic Stress Singularity Detection.
-
-  Milestone 7 scope: the three custom result contours (spec S35-S37). The
-  ribbon toolbar, study-settings wizard and progress UI arrive in Milestone 9;
-  the <evaluate> callbacks here delegate to extension/visualization.py, which
-  reads the fields precomputed by the external pipeline
-  (devtools/build_contours.py -> contour_fields.csv in the analysis working dir).
-
-  Runtime: IronPython 2.7 (Mechanical 2025 R1+).  GUID is stable for the life
-  of the extension -- do not change it.
+  Ansys Mechanical ACT extension : Automatic Stress Singularity Detection.
+  Runtime IronPython 2.7 (Mechanical 2025 R1+). GUID is stable for the life of
+  the extension (do not change it). The heavy numpy/DPF analysis runs in the
+  repo .venv as a subprocess (see extension/main.py); config in sd_config.json
+  next to the script, written by devtools/extension_deployer.py.
 -->
 <extension version="1" minorversion="0" name="SingularityDetector">
 
@@ -16,14 +11,28 @@
   <description>Automatic detection and characterisation of stress singularities via automated mesh-refinement convergence studies.</description>
   <guid shortid="SingularityDetector">f27a27e0-ca49-4fa6-87f4-ef972a94c1d7</guid>
 
-  <script src="visualization.py" />
+  <script src="main.py" />
 
   <interface context="Mechanical">
     <images>images</images>
+    <callbacks>
+      <oninit>on_init</oninit>
+    </callbacks>
+
     <toolbar name="Singularity Detector" caption="Singularity Detector">
-      <entry name="AddContours" icon="result">
+      <entry name="Run Singularity Study" icon="result">
         <callbacks>
-          <onclick>add_singularity_contours</onclick>
+          <onclick>run_singularity_study</onclick>
+        </callbacks>
+      </entry>
+      <entry name="Add Contours" icon="result">
+        <callbacks>
+          <onclick>add_contours</onclick>
+        </callbacks>
+      </entry>
+      <entry name="Study Settings" icon="result">
+        <callbacks>
+          <onclick>show_settings</onclick>
         </callbacks>
       </entry>
     </toolbar>
@@ -51,7 +60,7 @@
       <property name="Geometry" caption="Geometry" control="scoping"></property>
     </result>
 
-    <!-- spec S37: post-processing ESTIMATE -- never labelled true/correct/exact -->
+    <!-- spec S37: post-processing ESTIMATE, never labelled true/correct/exact -->
     <result name="Singularity-Filtered Stress" version="1"
             caption="Singularity-Filtered Stress (estimate)"
             unit="Stress" icon="result" location="node" type="scalar">

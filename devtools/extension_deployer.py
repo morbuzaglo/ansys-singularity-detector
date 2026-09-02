@@ -29,12 +29,18 @@ changes; there is no reliable hot-reload.
 from __future__ import annotations
 
 import argparse
+import datetime
+import json
 import os
 import shutil
 import stat
 import subprocess
 import sys
 from pathlib import Path
+
+
+def _now():
+    return datetime.datetime.now().replace(microsecond=0).isoformat()
 
 
 def _rmtree(p: Path) -> None:
@@ -53,11 +59,14 @@ from devtools import detect_ansys  # noqa: E402
 
 EXT_NAME = "SingularityDetector"
 SRC = REPO / "extension"
-# only these go into the deployed extension (the rest of extension/ is the
-# Mechanical-side milestone scripts, not part of the ACT extension)
-EXT_FILES = ["visualization.py"]
+# the extension script + every Mechanical-side (IronPython 2.7) module it imports
+EXT_FILES = ["main.py", "visualization.py", "act_study.py", "mech_env.py",
+             "mesh_manager.py", "result_extractor.py", "model_setup.py"]
 EXT_DIRS = ["images"]
 EXT_XML = "SingularityDetector.xml"
+
+DEFAULT_STUDY_SETTINGS = {"refinements": 3, "ratio": 0.75,
+                          "confidence_threshold": 70.0}
 
 
 def _appdata_ext_dir(version: str) -> Path:
@@ -82,6 +91,15 @@ def deploy(version: str = "auto", dest: str | None = None, link: bool = False) -
 
     shutil.copy2(SRC / EXT_XML, xml_dst)
 
+    # keep a user-edited settings file across a redeploy
+    kept_settings = None
+    prev = folder_dst / "sd_study_settings.json"
+    if prev.is_file() and not (folder_dst.is_symlink() or _is_junction(folder_dst)):
+        try:
+            kept_settings = prev.read_text(encoding="utf-8")
+        except Exception:
+            kept_settings = None
+
     if folder_dst.exists() or folder_dst.is_symlink():
         if folder_dst.is_symlink() or (os.name == "nt" and folder_dst.is_dir()
                                        and _is_junction(folder_dst)):
@@ -100,6 +118,23 @@ def deploy(version: str = "auto", dest: str | None = None, link: bool = False) -
             if (SRC / sub).is_dir():
                 shutil.copytree(SRC / sub, folder_dst / sub, dirs_exist_ok=True)
         note = "copied"
+
+    # tell the extension where the analysis venv + repo live (spec: extension is
+    # IronPython with no numpy -> it shells out to the venv for analysis)
+    venv_py = REPO / ".venv" / "Scripts" / ("python.exe" if os.name == "nt" else "python")
+    cfg = {
+        "repo_path": str(REPO),
+        "venv_python": str(venv_py) if venv_py.exists() else None,
+        "deployed_at": _now(),
+        "ansys_version": version,
+    }
+    cfg_target = SRC if link else folder_dst
+    (cfg_target / "sd_config.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    settings_target = cfg_target / "sd_study_settings.json"
+    if kept_settings is not None:
+        settings_target.write_text(kept_settings, encoding="utf-8")
+    elif not settings_target.is_file():
+        settings_target.write_text(json.dumps(DEFAULT_STUDY_SETTINGS, indent=2), encoding="utf-8")
 
     print("Deployed {0} ({1}) to {2}".format(EXT_NAME, note, d))
     print("  {0}".format(xml_dst))

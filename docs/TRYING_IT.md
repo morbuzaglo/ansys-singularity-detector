@@ -55,11 +55,9 @@ case — you should get confidence ~3 and zero regions.
 
 ---
 
-## B. See the contours inside the Mechanical GUI (manual, until Milestone 9)
+## B. In the Mechanical GUI -- one ribbon button
 
-There is **no ribbon button yet** (that's Milestone 9). Until then you load the
-extension and add the results by hand. You need an **ACT licence** (the site
-licence has it: increment `agppi`).
+You need an **ACT licence** (the site licence has it: increment `agppi`).
 
 ### One-time: deploy the extension
 
@@ -67,40 +65,43 @@ licence has it: increment `agppi`).
 python -m devtools.extension_deployer --ansys-version 252
 ```
 
-This copies `SingularityDetector.xml` + `SingularityDetector\` into
-`%APPDATA%\Ansys\v252\ACT\extensions\`. Re-run it after any code change (or use
-`--link` once to junction the folder so edits are picked up on the next
-Mechanical restart). Remove it with `--uninstall`.
+Copies `SingularityDetector.xml` + `SingularityDetector\` (script + every
+IronPython module + `sd_config.json` pointing at this repo's `.venv`) into
+`%APPDATA%\Ansys\v252\ACT\extensions\`. Re-run after a code change; `--link`
+junctions the folder for edit-in-place; `--uninstall` removes it.
+(It is already deployed on this machine.)
 
 ### Each time
 
-1. **Run part A first** for the geometry you want, so `contour_fields.csv` exists
-   in the study dir.
-2. Open **Workbench**, drop a **Static Structural** system, attach
-   `test_models\lbracket.stp` (or your own model), edit the model in
-   **Mechanical**, mesh and **Solve** once (any mesh — the contours resample by
-   coordinate, not node id).
-3. In Mechanical: **Extensions -> Manage Extensions**, tick **SingularityDetector**.
-   (If it isn't listed: *File -> Options -> Extensions -> Additional Extension
-   Folders* and add the repo's `extension\` folder, or check the deploy path.)
-4. Tell the extension where the CSV is. In the **ACT Console** (Automation tab,
-   enable *Debug Mode* first under *File -> Options -> Extensions*):
+1. Open **Workbench** -> **Static Structural** -> attach your geometry (e.g.
+   `test_models\lbracket.stp`), edit in **Mechanical**, apply your loads/supports,
+   mesh, and **Solve** once.
+2. **Extensions -> Manage Extensions** -> tick **SingularityDetector**. A
+   **Singularity Detector** ribbon tab appears with three buttons.
+3. *(optional)* **Study Settings** -- shows the current `refinements` / `ratio` /
+   `confidence_threshold`; edit `sd_study_settings.json` (path is in the dialog)
+   to change them.
+4. Click **Run Singularity Study**. It:
+   - runs the mesh-refinement study **on your analysis** (your BCs/loads
+     untouched; original mesh restored afterwards),
+   - shells out to the repo `.venv` for the numpy/DPF analysis
+     (`analyze_study` -> `build_contours` -> `convergence_charts`),
+   - drops **Raw Stress -- Original FE Solution**, **Singularity Confidence [%]**
+     and **Singularity-Filtered Stress (estimate)** under *Solution* and
+     evaluates them,
+   - pops a summary: classification, confidence 0-100, divergence exponent, and
+     the artifact folder (JSON + PNG charts).
+5. The Confidence contour is 0-100; the Filtered contour is the raw field with
+   the flagged region pulled toward the converged neighbourhood (grey /
+   max-double where "Not Recoverable"). **Raw Stress** is the untouched solver
+   field, there for comparison.
 
-   ```python
-   import visualization
-   visualization.CONTOUR_CSV_PATH = r"c:\...\artifacts\<STUDY>\contour_fields.csv"
-   ```
+**Add Contours** (button 2) just re-adds the three results from the most recent
+`contour_fields.csv` without re-running the study.
 
-   (Or copy `contour_fields.csv` into the analysis **Solver Files Directory** —
-   right-click the Solution branch -> *Open Solver Files Directory* — and the
-   callbacks find it automatically.)
-5. On the **SingularityDetector** ribbon tab, click **AddContours** (or in the
-   console: `ExtAPI.DataModel.AnalysisList[0].CreateResultObject("Singularity Confidence [%]", ExtAPI.ExtensionManager.CurrentExtension)`).
-6. Three results appear under *Solution*: **Raw Stress -- Original FE Solution**,
-   **Singularity Confidence [%]**, **Singularity-Filtered Stress (estimate)**.
-   Right-click -> **Evaluate All Results**. The Confidence contour is 0-100; the
-   Filtered contour shows the raw field with the flagged region pulled down
-   (grey / max-double where "Not Recoverable").
+If the button reports "cannot find the analysis venv Python", edit
+`venv_python` in
+`%APPDATA%\Ansys\v252\ACT\extensions\SingularityDetector\sd_config.json`.
 
 ### Notes
 
@@ -115,7 +116,8 @@ Mechanical restart). Remove it with `--uninstall`.
 
 ---
 
-## Milestone 9 (next) will replace step B4-B5 with a single ribbon button
+## Still to come
 
-"Run Singularity Study" -> pick refinements/ratio -> it runs the sweep, the
-analysis and drops the three results in the tree for you.
+- **Cross-version** (M10): validated here on 2025 R2 only; 2025 R1 / 2026 R1 are
+  architecturally supported but not locally tested on this machine.
+- **`.wbex` packaging** (M11) for sharing the extension without the repo/venv.

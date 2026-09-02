@@ -15,7 +15,7 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
 
 ## Status
 
-**Milestones 0–8 complete on 2025 R2.**  **Want to run it? → [`docs/TRYING_IT.md`](docs/TRYING_IT.md).**
+**Milestones 0–9 complete on 2025 R2.**  **Want to run it? → [`docs/TRYING_IT.md`](docs/TRYING_IT.md).**
 
 - **M0** `python devtools/run_milestone0.py` — no human in Mechanical: detect
   Ansys → licence preflight → PyMechanical embedded → import STEP → static
@@ -57,15 +57,18 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
   tree. L-bracket corner: 41 nodes recovered (mean −10 %); plate-with-hole:
   nothing filtered.
 
-- **M8** `python -m devtools.convergence_charts <study_dir>` — global (peak σ vs
-  h, vs element count, deformation vs h, reaction imbalance vs h) + per-region
-  (stress vs h, increment log-log, finite-vs-divergent model-fit overlay,
-  Nodal Fraction / energy error vs level) charts, each PNG **plus** its CSV.
-  `python -m devtools.extension_deployer` installs the extension into Ansys.
+- **M8** `python -m devtools.convergence_charts <study_dir>` — global + per-region
+  convergence charts, each PNG **plus** its CSV.
+- **M9** the **ACT ribbon**: `python -m devtools.extension_deployer` installs
+  **SingularityDetector** into Ansys; in Mechanical the **Singularity Detector**
+  tab has **Run Singularity Study** (runs the sweep on *your* analysis, restores
+  your mesh, shells out to the venv for the analysis, drops the three result
+  contours in the tree + a summary), **Add Contours**, **Study Settings**.
+  See [`docs/TRYING_IT.md`](docs/TRYING_IT.md).
 
-`pytest tests --run-benchmarks` green (109 unit + per-milestone mechanical
-tests). Tracker: [`docs/milestones.md`](docs/milestones.md). Next: **M9** ACT
-ribbon: one "Run Singularity Study" button + wizard + progress UI.
+`pytest tests --run-benchmarks` green (116 unit + per-milestone mechanical
+tests). Tracker: [`docs/milestones.md`](docs/milestones.md). Next: **M10**
+cross-version validation + `run_validation.py`; **M11** `.wbex` packaging.
 
 Working Ansys target on this machine: **2025 R2 / 252** (primary spec target
 2025 R1 / 251 is not installed — [`docs/ansys_environment.md`](docs/ansys_environment.md)).
