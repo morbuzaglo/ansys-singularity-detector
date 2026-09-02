@@ -1,0 +1,49 @@
+# --- Python (external automation layer, CPython 3) ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- run outputs: keep the dirs, ignore their contents ---
+artifacts/*
+!artifacts/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# --- Ansys / Mechanical / Workbench junk ---
+*.lock
+*.mech_lock
+*_files/
+*.rst
+*.rdb
+*.esav
+*.full
+*.mntr
+*.err
+*.stackdump
+file.*
+*.wbpj.backup
+*.wbpz
+_ProjectScratch/
+dp0/
+SYS/
+*.abt
+
+# --- editor / OS ---
+.vscode/*
+!.vscode/settings.json.sample
+.idea/
+Thumbs.db
+desktop.ini
+~$*
+
+# --- large binary geometry fixtures: track deliberately, not by accident ---
+# (add specific fixtures under test_models/ with `git add -f` once vetted)
+test_models/*.scdocx
+test_models/*.pmdb

@@ -1,0 +1,13 @@
+# Normalise line endings: LF in the repo for text, native on checkout.
+* text=auto eol=lf
+
+# Binary / geometry fixtures — never munge.
+*.stp binary
+*.step binary
+*.x_t binary
+*.agdb binary
+*.scdocx binary
+*.wbex binary
+*.rst binary
+*.png binary
+*.bmp binary

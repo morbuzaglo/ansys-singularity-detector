@@ -1,0 +1,22 @@
+# External automation / development layer -- modern CPython 3 only.
+# NOTHING here is imported by the ACT extension (that runs on IronPython 2.7).
+#
+#   python -m venv .venv && .venv\Scripts\activate
+#   pip install -r requirements-dev.txt
+
+# --- test + quality ---
+pytest>=8.0
+pytest-timeout>=2.3
+
+# --- numerics for the convergence engine (external layer) ---
+numpy>=1.26
+scipy>=1.11
+
+# --- plots / reports ---
+matplotlib>=3.8
+
+# --- Ansys automation backends (optional; capability-probed at runtime) ---
+# Pin per target Mechanical release; the runner falls back to the native
+# AnsysWBU.exe batch backend if these cannot launch/connect.
+ansys-mechanical-core>=0.11
+ansys-dpf-core>=0.12
