@@ -192,6 +192,11 @@ def main():
         model = ExtAPI.DataModel.Project.Model                       # noqa: F821
         analysis, fixed, faces = SETUPS[setup_name](model, geo, summary["force_newtons"])
         summary["faces"] = faces
+        try:
+            summary["bc_face_geometry"] = model_setup.face_geometry(
+                model, [v for v in faces.values()])
+        except Exception:
+            summary["bc_face_geometry"] = {}
         step("model-built")
 
         mm = mesh_manager.MeshManager(model)

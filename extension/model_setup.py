@@ -38,6 +38,22 @@ def _all_faces(model):
     return out
 
 
+def face_geometry(model, face_ids):
+    """{face_id: {'centroid':[x,y,z], 'area':a}} for the given GeoData face ids,
+    in the model's active unit system (mm for a standard Mechanical session)."""
+    want = set(int(i) for i in face_ids if i is not None)
+    out = {}
+    for f in _all_faces(model):
+        if int(f.Id) in want:
+            c = f.Centroid
+            try:
+                a = float(f.Area)
+            except Exception:
+                a = None
+            out[int(f.Id)] = {"centroid": [float(c[0]), float(c[1]), float(c[2])], "area": a}
+    return out
+
+
 def faces_sorted_by_x(model):
     """(min_x_face_id, max_x_face_id) GeoData ids, or (None, None). Raises nothing."""
     faces = [(f.Centroid[0], f.Id) for f in _all_faces(model)]

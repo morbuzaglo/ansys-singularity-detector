@@ -15,7 +15,7 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
 
 ## Status
 
-**Milestones 0–4 complete on 2025 R2.**
+**Milestones 0–5 complete on 2025 R2.**
 
 - **M0** `python devtools/run_milestone0.py` — no human in Mechanical: detect
   Ansys → licence preflight → PyMechanical embedded → import STEP → static
@@ -36,10 +36,15 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
   (`B+A·h^(-λ)`) model fit compared on residual + plausibility, localised to the
   hotspot neighbourhood. **plate-with-hole → convergent** (Kt limit 3.05);
   **re-entrant corner → singular** (λ ≈ 0.46, theory 0.4555); evidence gap 0.77.
+- **M5** `python -m devtools.secondary_metrics <study_dir>` — supporting signals
+  (spec §28–32): nodal-difference persistence, ZZ-lite discretisation error,
+  hotspot localisation (shrinking hot region + growing peak), geometry/BC prior
+  (re-entrant edge detection), global-solution sanity gate. All separate the
+  corner from the hole; the sanity gate stays open for both stable solves.
 
 `pytest tests --run-benchmarks` green. Tracker:
-[`docs/milestones.md`](docs/milestones.md). Next: **M5** secondary metrics
-(nodal-difference, energy error, hotspot-radius, priors, global sanity gate).
+[`docs/milestones.md`](docs/milestones.md). Next: **M6** Singularity Confidence
+score (weighted combination + region clustering; spec §33–34).
 
 Working Ansys target on this machine: **2025 R2 / 252** (primary spec target
 2025 R1 / 251 is not installed — [`docs/ansys_environment.md`](docs/ansys_environment.md)).
