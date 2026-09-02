@@ -64,9 +64,13 @@ def pymechanical_available():
 
 
 def pytest_collection_modifyitems(config, items):
-    if config.getoption("--run-benchmarks"):
-        return
+    run_bench = config.getoption("--run-benchmarks")
     skip_bench = pytest.mark.skip(reason="benchmark lane: pass --run-benchmarks to run")
     for item in items:
-        if "benchmark" in item.keywords:
+        # The mechanical / benchmark lanes launch Mechanical in a subprocess and
+        # run several solves -- well past the default pytest-timeout. Give them
+        # room (unit tests keep the short default from pytest.ini).
+        if "mechanical" in item.keywords or "benchmark" in item.keywords:
+            item.add_marker(pytest.mark.timeout(2400))
+        if "benchmark" in item.keywords and not run_bench:
             item.add_marker(skip_bench)

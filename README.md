@@ -15,13 +15,20 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
 
 ## Status
 
-**Milestone 0 (autonomous Ansys runner) is complete on 2025 R2.**
-`python devtools/run_milestone0.py` drives, with no human in Mechanical:
-detect Ansys → licence preflight → PyMechanical embedded → import STEP → static
-structural → BC → mesh → solve → extract peak stress → machine-readable JSON →
-exit. `pytest tests --run-benchmarks` = 10 passed (incl. a physics sanity
-check). Tracker: [`docs/milestones.md`](docs/milestones.md). Next: Milestone 1
-(mesh-size sweep → `mesh_manager` + `result_extractor`).
+**Milestones 0–1 complete on 2025 R2.**
+
+- **M0** `python devtools/run_milestone0.py` — no human in Mechanical: detect
+  Ansys → licence preflight → PyMechanical embedded → import STEP → static
+  structural → BC → mesh → solve → peak stress → JSON → exit.
+- **M1** `python devtools/run_milestone1.py --geometry test_models/bar.stp` —
+  parametrised element-size sweep (`mesh_manager` + `result_extractor` +
+  `model_setup`), per-level `file.rst` preserved, mesh restored. Plain bar peak
+  stress converges (increment ratio 0.36); reaction = applied load at every
+  level.
+
+`pytest tests --run-benchmarks` green. Tracker:
+[`docs/milestones.md`](docs/milestones.md). Next: **M2** full convergence-study
+controller (spec §22).
 
 Working Ansys target on this machine: **2025 R2 / 252** (primary spec target
 2025 R1 / 251 is not installed — [`docs/ansys_environment.md`](docs/ansys_environment.md)).
