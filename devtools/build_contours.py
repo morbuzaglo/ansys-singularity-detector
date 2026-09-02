@@ -110,6 +110,15 @@ def build(study_dir: str, *, threshold: float = 70.0, make_png: bool = True) -> 
     confidence = np.asarray(z["confidence"], float)
     raw = np.asarray(z["raw_stress_finest"], float)
 
+    def _col(key):
+        return (np.asarray(z[key], float) if key in z.files
+                else np.full(coords.shape[0], np.nan))
+
+    # per-criterion fields (spec S28-S33) so each can be its own contour
+    mesh_div = _col("evidence")         # 0..1  mesh-divergence evidence (weight 0.55)
+    lambda_local = _col("lambda_est")   # local divergence exponent (sparse; NaN away from hotspots)
+    geom_prior = _col("geometry_prior")  # 0..1  proximity to re-entrant edges / BC faces
+
     h_local = _finest_char_size_m(d)
     # coords are in the rst length unit (mm); convert h to that unit for radii
     # by matching scale to the model bounding box.
@@ -130,16 +139,22 @@ def build(study_dir: str, *, threshold: float = 70.0, make_png: bool = True) -> 
         coords=coords, raw_stress=raw, confidence=confidence,
         filtered_stress=filt, recovery_status=status.astype("U16"),
         raw_stress_pa=raw_pa, filtered_stress_pa=filt_pa, stress_scale_to_pa=scale_pa,
+        mesh_divergence=mesh_div, lambda_local=lambda_local, geometry_prior=geom_prior,
     )
+
+    def _cell(x):
+        return "" if not np.isfinite(x) else x
 
     with open(d / "contour_fields.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["x", "y", "z", "raw_stress", "confidence_pct",
-                    "filtered_stress", "recovery_status"])
+                    "filtered_stress", "mesh_divergence", "lambda_local",
+                    "geometry_prior", "recovery_status"])
         for i in range(coords.shape[0]):
             w.writerow([coords[i, 0], coords[i, 1], coords[i, 2],
-                        raw_pa[i], confidence[i],
-                        ("" if not np.isfinite(filt_pa[i]) else filt_pa[i]), status[i]])
+                        raw_pa[i], confidence[i], _cell(filt_pa[i]),
+                        _cell(mesh_div[i]), _cell(lambda_local[i]),
+                        _cell(geom_prior[i]), status[i]])
 
     finite_filt = filt[np.isfinite(filt)]
     _raw_unit = "Pa" if scale_pa != 1.0 else "MPa or Pa (uncalibrated -- see csv_unit_note)"
@@ -175,6 +190,13 @@ def build(study_dir: str, *, threshold: float = 70.0, make_png: bool = True) -> 
             "mean_reduction_pct": round(float(np.mean(100.0 * (1.0 - rf / rr))), 1),
             "max_reduction_pct": round(float(np.max(100.0 * (1.0 - rf / rr))), 1),
         }
+        # the GLOBAL peak may sit on an UN-flagged node (e.g. a support edge the
+        # criteria didn't catch), so peak_reduction_pct can read 0 even though
+        # the flagged region was pulled down a lot -- report that explicitly.
+        summary["peak_reduction_pct_in_flagged_region"] = summary["recovered_region"]["max_reduction_pct"]
+        gi = int(np.nanargmax(raw))
+        summary["global_peak_is_flagged"] = bool(recmask[gi])
+        summary["global_peak_confidence"] = float(confidence[gi])
     (d / "contours_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
     # small sidecar the IronPython visualization layer reads to (a) know the Pa

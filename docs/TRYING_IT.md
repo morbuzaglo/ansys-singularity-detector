@@ -91,23 +91,37 @@ junctions the folder for edit-in-place; `--uninstall` removes it.
    - **leaves the model meshed + solved at the finest level** (spec S7) -- your
      own stress/deformation plots are then valid at the finest mesh,
    - shells out to the repo `.venv` for the numpy/DPF analysis,
-   - drops **Raw Stress (Original FE Solution)**, **Singularity Confidence [%]**
-     and **Singularity-Filtered Stress (estimate)** under *Solution*, evaluates
-     them, and pops a summary (classification, confidence 0-100, divergence
-     exponent, artifact folder with JSON + PNG charts).
+   - drops the result contours (below) under *Solution*, evaluates them, and pops
+     a summary (classification, confidence 0-100, divergence exponent,
+     flagged-region peak reduction, artifact folder with JSON + PNG charts).
    - A small status window shows "level N/M: meshing/solving -> analysing (DPF)
      -> done" (Mechanical is frozen while it runs -- that is expected).
-5. The Confidence contour is 0-100 but **shows only nodes at/above the confidence
-   threshold** (the rest read as no-data/grey) so the singular regions stand out;
-   the Filtered contour is the raw field with the flagged region pulled toward
-   the converged neighbourhood (grey / max-double where "Not Recoverable").
-   **Raw Stress** is the untouched solver field (in Pa internally; Mechanical
-   shows it in your display unit), there for comparison.
+5. Result contours -- all under one **"Singularity Detector"** submenu (both in
+   the tree and in the *Solution* right-click **Insert** menu, like Stress /
+   Strain):
+   | result | what it shows |
+   |---|---|
+   | **Singularity Confidence [%]** | 0-100 combined score, **every node coloured** |
+   | **Singularity Confidence - flagged only** | same, but nodes below the threshold read as no-data so the singular regions stand out |
+   | **Mesh Divergence Evidence [0-1]** | per node: does stress keep growing as the mesh refines (the dominant criterion) |
+   | **Local Divergence Exponent (lambda)** | fitted r^(lambda-1) exponent near hot spots (sparse -- no data elsewhere) |
+   | **Geometry Prior [0-1]** | proximity to a re-entrant edge / restrained face |
+   | **Raw Stress (Original FE Solution)** | untouched solver von Mises (Pa internally; shown in your display unit) |
+   | **Singularity-Filtered Stress (estimate)** | raw field with the flagged region pulled toward the converged neighbourhood (max-double where "Not Recoverable") |
+
+   Per-level **increment-rate** and convergence curves are in the artifact
+   folder's `charts/` PNGs.
+
+   Note: if the model's global stress peak is on a node the criteria did **not**
+   flag (e.g. a support edge just under the threshold), the *global* Filtered
+   peak equals Raw -- the summary says so and reports the flagged-region
+   reduction instead. Lower the **Confidence threshold** to pull borderline
+   spots into the recovery.
 
 **Restore Original Mesh** puts your mesh controls back (from the
 `sd_original_mesh.json` snapshot the study wrote) -- then re-mesh + re-solve.
 
-**Add Contours** just (re-)adds the three results from the most recent
+**Add Contours** just (re-)adds the results from the most recent
 `contour_fields.csv` without re-running the study.
 
 If the button reports "cannot find the analysis venv Python", edit

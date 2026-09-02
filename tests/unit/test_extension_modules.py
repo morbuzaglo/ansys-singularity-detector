@@ -151,7 +151,15 @@ def test_add_contours_with_explicit_ext():
     an = _AnCreate()
     made = viz.add_singularity_contours(an, ext="EXT")
     assert made == list(viz._RESULT_NAMES)
-    assert [c[1] for c in an.calls] == ["EXT", "EXT", "EXT"]
+    assert [c[1] for c in an.calls] == ["EXT"] * len(viz._RESULT_NAMES)
+
+
+def test_add_contours_subset_by_name():
+    viz = _load("visualization")
+    an = _AnCreate()
+    made = viz.add_singularity_contours(an, ext="EXT",
+                                        names=["Mesh Divergence Evidence"])
+    assert made == ["Mesh Divergence Evidence"]
 
 
 def test_add_contours_falls_back_to_one_arg():
@@ -159,7 +167,7 @@ def test_add_contours_falls_back_to_one_arg():
     an = _AnCreate(fail_two_arg=True)
     made = viz.add_singularity_contours(an, ext="EXT")
     assert made == list(viz._RESULT_NAMES)
-    assert [c[1] for c in an.calls] == [None, None, None]      # 1-arg form used
+    assert [c[1] for c in an.calls] == [None] * len(viz._RESULT_NAMES)  # 1-arg form
 
 
 def test_add_contours_raises_if_nothing_created():
@@ -194,12 +202,13 @@ class _AnRemove(object):
 
 def test_remove_singularity_contours_deletes_only_ours():
     viz = _load("visualization")
-    an = _AnRemove([viz._RESULT_NAMES[0], "User Equivalent Stress",
-                    viz._RESULT_NAMES[1], "Total Deformation", viz._RESULT_NAMES[2]])
+    ours = list(viz._RESULT_NAMES)
+    an = _AnRemove([ours[0], "User Equivalent Stress", ours[2],
+                    "Total Deformation", ours[-1]])
     removed = viz.remove_singularity_contours(an)
-    assert sorted(removed) == sorted(viz._RESULT_NAMES)
+    assert sorted(removed) == sorted([ours[0], ours[2], ours[-1]])
     deleted = [k.Name for k in an._kids if k.deleted]
-    assert sorted(deleted) == sorted(viz._RESULT_NAMES)
+    assert sorted(deleted) == sorted([ours[0], ours[2], ours[-1]])
     assert not [k for k in an._kids if k.Name == "Total Deformation"][0].deleted
 
 
@@ -262,14 +271,36 @@ def test_fill_collector_masks_confidence_below_threshold(tmp_path, monkeypatch):
 
     viz._CACHE.clear()
     viz._META_CACHE.clear()
+    # mask_below="threshold" -> resolved from contour_meta.json (70)
     coll = _Coll([1, 2])
-    viz.fill_collector(_R(), coll, "confidence_pct", csv_path=str(csv_p))
+    viz.fill_collector(_R(), coll, "confidence_pct", csv_path=str(csv_p),
+                       mask_below="threshold")
     assert coll.set[1] == [System.Double.MaxValue]        # 20 < 70 -> hidden
     assert coll.set[2] == [pytest.approx(85.0)]           # 85 >= 70 -> shown
 
-    # raw_stress column is never threshold-masked
+    # no mask_below -> full field, every node coloured
     viz._CACHE.clear()
-    coll2 = _Coll([1, 2])
-    viz.fill_collector(_R(), coll2, "raw_stress", csv_path=str(csv_p))
-    assert coll2.set[1] == [pytest.approx(10.0)]
-    assert coll2.set[2] == [pytest.approx(10.0)]
+    coll_full = _Coll([1, 2])
+    viz.fill_collector(_R(), coll_full, "confidence_pct", csv_path=str(csv_p))
+    assert coll_full.set[1] == [pytest.approx(20.0)]
+    assert coll_full.set[2] == [pytest.approx(85.0)]
+
+    # explicit numeric mask_below
+    viz._CACHE.clear()
+    coll_n = _Coll([1, 2])
+    viz.fill_collector(_R(), coll_n, "confidence_pct", csv_path=str(csv_p),
+                       mask_below=50.0)
+    assert coll_n.set[1] == [System.Double.MaxValue]
+    assert coll_n.set[2] == [pytest.approx(85.0)]
+
+
+def test_visualization_exposes_all_result_callbacks():
+    viz = _load("visualization")
+    assert len(viz._RESULT_NAMES) == 7
+    for cb in ("evaluate_raw_stress", "evaluate_singularity_confidence",
+               "evaluate_singularity_confidence_flagged",
+               "evaluate_singularity_filtered_stress", "evaluate_mesh_divergence",
+               "evaluate_lambda_local", "evaluate_geometry_prior"):
+        assert callable(getattr(viz, cb))
+    # per-criterion columns the callbacks read
+    assert {"mesh_divergence", "lambda_local", "geometry_prior"} <= set(viz._Field.COLS)

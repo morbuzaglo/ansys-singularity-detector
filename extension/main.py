@@ -43,7 +43,11 @@ if _HERE not in sys.path:
 
 from visualization import (evaluate_raw_stress,                         # noqa: F401
                            evaluate_singularity_confidence,             # noqa: F401
+                           evaluate_singularity_confidence_flagged,     # noqa: F401
                            evaluate_singularity_filtered_stress,        # noqa: F401
+                           evaluate_mesh_divergence,                    # noqa: F401
+                           evaluate_lambda_local,                       # noqa: F401
+                           evaluate_geometry_prior,                     # noqa: F401
                            add_singularity_contours,
                            remove_singularity_contours)
 import visualization
@@ -508,15 +512,42 @@ def run_singularity_study(analysis):
                 head = json.load(open(ap)).get("headline", {})
             except Exception:
                 head = {}
+        csum = {}
+        cp = os.path.join(run_dir, "contours_summary.json")
+        if os.path.isfile(cp):
+            try:
+                csum = json.load(open(cp))
+            except Exception:
+                csum = {}
+
+        filt_line = ""
+        if csum:
+            flagged_red = csum.get("peak_reduction_pct_in_flagged_region")
+            if flagged_red is not None:
+                filt_line = ("\nfiltered stress: -%s%% peak in the flagged region"
+                             % flagged_red)
+                if csum.get("global_peak_is_flagged") is False:
+                    filt_line += ("\n  (the model's global peak node is NOT flagged"
+                                  " -- confidence %.0f there -- so the GLOBAL peak"
+                                  " is unchanged; check the support/load edges)"
+                                  % (csum.get("global_peak_confidence") or 0.0))
+
         status.update(1.0, "done")
         _msgbox(
             "Singularity study complete.  Model left at the finest mesh.\n\n"
             "  classification : %s\n"
             "  confidence     : %s / 100   [%s]\n"
-            "  divergence exp : %s\n\n"
-            "Results: Raw Stress, Singularity Confidence [%%], "
-            "Singularity-Filtered Stress.\nCharts + JSON:\n%s"
+            "  divergence exp : %s\n"
+            "%s\n\n"
+            "Results added under Solution (also in the right-click Insert menu,\n"
+            "group 'Singularity Detector'):\n"
+            "  Singularity Confidence  /  ... (flagged only)\n"
+            "  Mesh Divergence Evidence  /  Local Divergence Exponent\n"
+            "  Geometry Prior\n"
+            "  Raw Stress  /  Singularity-Filtered Stress\n\n"
+            "Convergence + increment-rate charts + JSON:\n%s"
             % (head.get("classification"), head.get("singularity_confidence"),
-               head.get("category"), head.get("divergence_exponent"), run_dir))
+               head.get("category"), head.get("divergence_exponent"),
+               filt_line, run_dir))
     finally:
         status.close()

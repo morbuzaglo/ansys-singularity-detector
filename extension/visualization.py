@@ -81,7 +81,8 @@ def _candidate_paths(working_dir=None):
 class _Field(object):
     """Uniform-grid nearest lookup over the precomputed contour nodes."""
 
-    COLS = ("raw_stress", "confidence_pct", "filtered_stress")
+    COLS = ("raw_stress", "confidence_pct", "filtered_stress",
+            "mesh_divergence", "lambda_local", "geometry_prior")
 
     def __init__(self, csv_path):
         self.path = csv_path
@@ -208,19 +209,21 @@ def load_field(csv_path=None, working_dir=None):
 _MISSING_LOGGED = [False]
 
 
-def fill_collector(result, collector, column, csv_path=None):
+def fill_collector(result, collector, column, csv_path=None, mask_below=None):
     """ACT <evaluate> helper: for each node id the collector asks about, look up
     the precomputed value by that node's physical coordinate and store it.
 
-    ``column`` is one of 'raw_stress', 'confidence_pct', 'filtered_stress'.
+    ``column`` is one of the contour_fields.csv value columns: 'raw_stress',
+    'confidence_pct', 'filtered_stress', 'mesh_divergence', 'lambda_local',
+    'geometry_prior'.
     A missing / Not-Recoverable value -- and the whole file being absent (the
     study has not been run yet, or Mechanical is re-evaluating mid-study) --
     stores System.Double.MaxValue rather than raising, so the result just shows
     "no data" instead of erroring on every solve.
 
-    For the 'confidence_pct' column, nodes below the study's confidence
-    threshold (contour_meta.json) are stored as the no-data sentinel too, so the
-    contour lights up only where a singularity is actually indicated.
+    ``mask_below`` (float): if set, values strictly below it are stored as the
+    no-data sentinel -- used by the "flagged only" confidence contour so it
+    lights up only where a singularity is actually indicated.
     """
     from System import Double        # noqa: F401  (.NET, present in Mechanical)
 
@@ -244,8 +247,7 @@ def fill_collector(result, collector, column, csv_path=None):
     except Exception:
         mesh = None
 
-    mask_below = None
-    if column == "confidence_pct":
+    if mask_below == "threshold":
         try:
             mask_below = float(_meta_for(fld.path).get("threshold"))
         except Exception:
@@ -272,17 +274,23 @@ def fill_collector(result, collector, column, csv_path=None):
 
 
 # --- toolbar callback ---------------------------------------------------
-# these MUST match the <result name="..."> in SingularityDetector.xml
-_RESULT_NAMES = ("Raw Stress (Original FE Solution)",
-                 "Singularity Confidence",
+# every name here MUST match a <result name="..."> in SingularityDetector.xml.
+# order = the order "Add Contours" inserts them.
+_RESULT_NAMES = ("Singularity Confidence",
+                 "Singularity Confidence (flagged)",
+                 "Mesh Divergence Evidence",
+                 "Local Divergence Exponent",
+                 "Geometry Prior",
+                 "Raw Stress (Original FE Solution)",
                  "Singularity-Filtered Stress")
 
 
-def add_singularity_contours(analysis, ext=None):
-    """Drop the three custom results into the tree.  They evaluate from
-    contour_fields.csv (produced by the external pipeline); absent it, they show
-    the no-value sentinel until the study has been run.
+def add_singularity_contours(analysis, ext=None, names=None):
+    """Drop the custom Singularity Detector results into the tree.  They evaluate
+    from contour_fields.csv (produced by the external pipeline); absent it, they
+    show the no-value sentinel until the study has been run.
 
+    ``names`` -- subset of _RESULT_NAMES to add (default: all of them).
     ``ext`` = the current extension handle (main.py passes
     ExtAPI.ExtensionManager.CurrentExtension).  If not given we fall back to the
     1-argument CreateResultObject form (valid per the ACTResults sample)."""
@@ -293,8 +301,9 @@ def add_singularity_contours(analysis, ext=None):
                 ext = e.ExtensionManager.CurrentExtension
             except Exception:
                 ext = None
+    want = list(names) if names else list(_RESULT_NAMES)
     made, errs = [], []
-    for name in _RESULT_NAMES:
+    for name in want:
         ok = False
         for attempt in ((name, ext), (name,)):
             if attempt[-1] is None and len(attempt) == 2:
@@ -316,9 +325,9 @@ def add_singularity_contours(analysis, ext=None):
 
 
 def remove_singularity_contours(analysis):
-    """Delete our three result objects from the tree (used at the start of a
-    study run so Mechanical doesn't try to evaluate them on every level's
-    solve, before contour_fields.csv exists)."""
+    """Delete our result objects from the tree (used at the start of a study run
+    so Mechanical doesn't try to evaluate them on every level's solve, before
+    contour_fields.csv exists)."""
     removed = []
     try:
         kids = list(analysis.Solution.Children)
@@ -336,14 +345,35 @@ def remove_singularity_contours(analysis):
     return removed
 
 
-# --- the three <evaluate> callbacks the extension XML points at ----------
+# --- the <evaluate> callbacks the extension XML points at ---------------
 def evaluate_raw_stress(result, stepInfo, collector):
     fill_collector(result, collector, "raw_stress")
 
 
 def evaluate_singularity_confidence(result, stepInfo, collector):
+    # full field: every node coloured by its 0-100 score
     fill_collector(result, collector, "confidence_pct")
+
+
+def evaluate_singularity_confidence_flagged(result, stepInfo, collector):
+    # only nodes at/above the study confidence threshold (rest = no data)
+    fill_collector(result, collector, "confidence_pct", mask_below="threshold")
 
 
 def evaluate_singularity_filtered_stress(result, stepInfo, collector):
     fill_collector(result, collector, "filtered_stress")
+
+
+def evaluate_mesh_divergence(result, stepInfo, collector):
+    # S28/S33 primary term: does stress diverge with mesh refinement here (0..1)
+    fill_collector(result, collector, "mesh_divergence")
+
+
+def evaluate_lambda_local(result, stepInfo, collector):
+    # local divergence exponent estimate; sparse (no data away from hot spots)
+    fill_collector(result, collector, "lambda_local")
+
+
+def evaluate_geometry_prior(result, stepInfo, collector):
+    # S31: proximity to a re-entrant edge / restrained face (0..1)
+    fill_collector(result, collector, "geometry_prior")

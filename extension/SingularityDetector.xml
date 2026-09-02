@@ -51,17 +51,9 @@
       </property>
     </object>
 
-    <result name="Raw Stress (Original FE Solution)" version="1"
-            caption="Raw Stress (Original FE Solution)"
-            unit="Stress" icon="result" location="node" type="scalar">
-      <callbacks>
-        <evaluate>evaluate_raw_stress</evaluate>
-      </callbacks>
-      <property name="Geometry" caption="Geometry" control="scoping"></property>
-    </result>
-
     <result name="Singularity Confidence" version="1"
             caption="Singularity Confidence [%]"
+            contextgroup="Singularity Detector" begingroup="true"
             icon="result" location="node" type="scalar">
       <callbacks>
         <evaluate>evaluate_singularity_confidence</evaluate>
@@ -69,8 +61,59 @@
       <property name="Geometry" caption="Geometry" control="scoping"></property>
     </result>
 
+    <result name="Singularity Confidence (flagged)" version="1"
+            caption="Singularity Confidence - flagged only [%]"
+            contextgroup="Singularity Detector"
+            icon="result" location="node" type="scalar">
+      <callbacks>
+        <evaluate>evaluate_singularity_confidence_flagged</evaluate>
+      </callbacks>
+      <property name="Geometry" caption="Geometry" control="scoping"></property>
+    </result>
+
+    <result name="Mesh Divergence Evidence" version="1"
+            caption="Mesh Divergence Evidence [0-1]"
+            contextgroup="Singularity Detector"
+            icon="result" location="node" type="scalar">
+      <callbacks>
+        <evaluate>evaluate_mesh_divergence</evaluate>
+      </callbacks>
+      <property name="Geometry" caption="Geometry" control="scoping"></property>
+    </result>
+
+    <result name="Local Divergence Exponent" version="1"
+            caption="Local Divergence Exponent (lambda)"
+            contextgroup="Singularity Detector"
+            icon="result" location="node" type="scalar">
+      <callbacks>
+        <evaluate>evaluate_lambda_local</evaluate>
+      </callbacks>
+      <property name="Geometry" caption="Geometry" control="scoping"></property>
+    </result>
+
+    <result name="Geometry Prior" version="1"
+            caption="Geometry Prior [0-1]"
+            contextgroup="Singularity Detector"
+            icon="result" location="node" type="scalar">
+      <callbacks>
+        <evaluate>evaluate_geometry_prior</evaluate>
+      </callbacks>
+      <property name="Geometry" caption="Geometry" control="scoping"></property>
+    </result>
+
+    <result name="Raw Stress (Original FE Solution)" version="1"
+            caption="Raw Stress (Original FE Solution)"
+            contextgroup="Singularity Detector" begingroup="true"
+            unit="Stress" icon="result" location="node" type="scalar">
+      <callbacks>
+        <evaluate>evaluate_raw_stress</evaluate>
+      </callbacks>
+      <property name="Geometry" caption="Geometry" control="scoping"></property>
+    </result>
+
     <result name="Singularity-Filtered Stress" version="1"
             caption="Singularity-Filtered Stress (estimate)"
+            contextgroup="Singularity Detector"
             unit="Stress" icon="result" location="node" type="scalar">
       <callbacks>
         <evaluate>evaluate_singularity_filtered_stress</evaluate>

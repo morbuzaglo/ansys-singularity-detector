@@ -108,6 +108,31 @@ def test_csv_stress_calibrated_to_pa_against_mechanical_peak(tmp_path):
     assert np.allclose(z["raw_stress_pa"], z["raw_stress"] * 1e6)
 
 
+def test_per_criterion_columns_written(tmp_path):
+    d, spike = _make_study(tmp_path)
+    # give the synthetic npz distinct per-criterion fields
+    src = dict(np.load(d / "confidence_field.npz", allow_pickle=True))
+    n = src["coords"].shape[0]
+    src["evidence"] = np.linspace(0.0, 0.9, n)
+    src["lambda_est"] = np.where(np.arange(n) == spike, 0.46, np.nan)
+    src["geometry_prior"] = np.linspace(1.0, 0.0, n)
+    np.savez_compressed(d / "confidence_field.npz", **src)
+
+    bc.build(str(d), make_png=False)
+
+    import csv as _csv
+    with open(d / "contour_fields.csv", newline="") as f:
+        rows = list(_csv.DictReader(f))
+    assert {"mesh_divergence", "lambda_local", "geometry_prior"} <= set(rows[0])
+    # lambda is sparse -> blank away from the spike, a number at it
+    xs = [r for r in rows if r["lambda_local"] not in ("", None)]
+    assert len(xs) == 1 and float(xs[0]["lambda_local"]) == pytest.approx(0.46)
+
+    z = np.load(d / "contour_fields.npz", allow_pickle=True)
+    assert {"mesh_divergence", "lambda_local", "geometry_prior"} <= set(z.files)
+    assert np.allclose(z["mesh_divergence"], np.linspace(0.0, 0.9, n))
+
+
 def test_csv_stress_left_as_is_without_a_reference(tmp_path):
     d, spike = _make_study(tmp_path)          # study_result.json has no peak
     bc.build(str(d), make_png=False)

@@ -134,7 +134,10 @@ def test_guard_turns_exceptions_into_msgbox(monkeypatch, tmp_path):
 def test_reexports_the_m7_evaluate_callbacks(monkeypatch, tmp_path):
     m = _load_main(monkeypatch, tmp_path)
     for name in ("evaluate_raw_stress", "evaluate_singularity_confidence",
-                 "evaluate_singularity_filtered_stress", "add_singularity_contours",
+                 "evaluate_singularity_confidence_flagged",
+                 "evaluate_singularity_filtered_stress", "evaluate_mesh_divergence",
+                 "evaluate_lambda_local", "evaluate_geometry_prior",
+                 "add_singularity_contours",
                  "on_init", "run_singularity_study", "add_contours",
                  "restore_original_mesh", "show_settings"):
         assert callable(getattr(m, name))
