@@ -23,20 +23,40 @@ class ResultSet(object):
         self.strain_energy = None
         self._build()
 
+    PREFIX = "SD_"      # spec S9: temporary objects are clearly marked
+
+    def _name(self, obj, tag):
+        try:
+            obj.Name = self.PREFIX + tag
+        except Exception:
+            pass
+        return obj
+
     def _build(self):
         sol = self.solution
-        self.eqv = sol.AddEquivalentStress()
-        self.total_def = sol.AddTotalDeformation()
+        self.eqv = self._name(sol.AddEquivalentStress(), "EquivalentStress")
+        self.total_def = self._name(sol.AddTotalDeformation(), "TotalDeformation")
         try:
             if self.fixed_support is not None:
-                self.reaction = sol.AddForceReaction()
+                self.reaction = self._name(sol.AddForceReaction(), "ForceReaction")
                 self.reaction.BoundaryConditionSelection = self.fixed_support
         except Exception:
             self.reaction = None
         try:
-            self.strain_energy = sol.AddStrainEnergy()
+            self.strain_energy = self._name(sol.AddStrainEnergy(), "StrainEnergy")
         except Exception:
             self.strain_energy = None
+
+    def remove(self):
+        """Delete the temporary SD_ result objects (call after the study loop)."""
+        for obj in (self.eqv, self.total_def, self.reaction, self.strain_energy):
+            if obj is None:
+                continue
+            try:
+                obj.Delete()
+            except Exception:
+                pass
+        self.eqv = self.total_def = self.reaction = self.strain_energy = None
 
     def _max(self, obj):
         if obj is None:

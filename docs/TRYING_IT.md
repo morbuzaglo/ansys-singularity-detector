@@ -77,26 +77,34 @@ junctions the folder for edit-in-place; `--uninstall` removes it.
    `test_models\lbracket.stp`), edit in **Mechanical**, apply your loads/supports,
    mesh, and **Solve** once.
 2. **Extensions -> Manage Extensions** -> tick **SingularityDetector**. A
-   **Singularity Detector** ribbon tab appears with three buttons.
-3. *(optional)* **Study Settings** -- shows the current `refinements` / `ratio` /
-   `confidence_threshold`; edit `sd_study_settings.json` (path is in the dialog)
-   to change them.
+   **Singularity Detector** ribbon tab appears (Run / Restore Original Mesh /
+   Study Settings / Add Contours).
+3. *(optional)* **Study Settings** -- inserts/selects a **"Singularity Study"**
+   object in the tree; set **Refinements**, **Ratio** (0.50-0.90), **Confidence
+   threshold [%]** and **Result quantity** in its Details view. Defaults are used
+   if you skip this.
 4. Click **Run Singularity Study**. It:
-   - runs the mesh-refinement study **on your analysis** (your BCs/loads
-     untouched; original mesh restored afterwards),
-   - shells out to the repo `.venv` for the numpy/DPF analysis
-     (`analyze_study` -> `build_contours` -> `convergence_charts`),
-   - drops **Raw Stress -- Original FE Solution**, **Singularity Confidence [%]**
-     and **Singularity-Filtered Stress (estimate)** under *Solution* and
-     evaluates them,
-   - pops a summary: classification, confidence 0-100, divergence exponent, and
-     the artifact folder (JSON + PNG charts).
+   - runs the mesh-refinement study **on your analysis** (your geometry/BCs/loads
+     untouched); the temporary result objects are named `SD_*` and removed at
+     the end,
+   - **leaves the model meshed + solved at the finest level** (spec S7) -- your
+     own stress/deformation plots are then valid at the finest mesh,
+   - shells out to the repo `.venv` for the numpy/DPF analysis,
+   - drops **Raw Stress (Original FE Solution)**, **Singularity Confidence [%]**
+     and **Singularity-Filtered Stress (estimate)** under *Solution*, evaluates
+     them, and pops a summary (classification, confidence 0-100, divergence
+     exponent, artifact folder with JSON + PNG charts).
+   - A small status window shows "level N/M: meshing/solving -> analysing (DPF)
+     -> done" (Mechanical is frozen while it runs -- that is expected).
 5. The Confidence contour is 0-100; the Filtered contour is the raw field with
    the flagged region pulled toward the converged neighbourhood (grey /
    max-double where "Not Recoverable"). **Raw Stress** is the untouched solver
    field, there for comparison.
 
-**Add Contours** (button 2) just re-adds the three results from the most recent
+**Restore Original Mesh** puts your mesh controls back (from the
+`sd_original_mesh.json` snapshot the study wrote) -- then re-mesh + re-solve.
+
+**Add Contours** just (re-)adds the three results from the most recent
 `contour_fields.csv` without re-running the study.
 
 If the button reports "cannot find the analysis venv Python", edit

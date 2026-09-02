@@ -18,9 +18,9 @@
           <onclick>run_singularity_study</onclick>
         </callbacks>
       </entry>
-      <entry name="AddContours" icon="result" caption="Add Contours">
+      <entry name="RestoreMesh" icon="result" caption="Restore Original Mesh">
         <callbacks>
-          <onclick>add_contours</onclick>
+          <onclick>restore_original_mesh</onclick>
         </callbacks>
       </entry>
       <entry name="StudySettings" icon="result" caption="Study Settings">
@@ -28,10 +28,28 @@
           <onclick>show_settings</onclick>
         </callbacks>
       </entry>
+      <entry name="AddContours" icon="result" caption="Add Contours">
+        <callbacks>
+          <onclick>add_contours</onclick>
+        </callbacks>
+      </entry>
     </toolbar>
   </interface>
 
   <simdata context="Mechanical">
+
+    <object name="Singularity Study" version="1" caption="Singularity Study" icon="result">
+      <property name="Refinements" caption="Refinements (extra mesh levels)"
+               control="integer" default="3"></property>
+      <property name="Ratio" caption="Size ratio  h(i+1) / h(i)"
+               control="double" default="0.75"></property>
+      <property name="ConfidenceThreshold" caption="Confidence threshold [%]"
+               control="double" default="70"></property>
+      <property name="ResultQuantity" caption="Result quantity"
+               control="select" default="Equivalent (von Mises)">
+        <attributes options="Equivalent (von Mises),Maximum Principal,Minimum Principal"></attributes>
+      </property>
+    </object>
 
     <result name="Raw Stress (Original FE Solution)" version="1"
             caption="Raw Stress (Original FE Solution)"

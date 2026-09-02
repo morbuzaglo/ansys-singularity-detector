@@ -82,6 +82,35 @@ class MeshManager(object):
             pass
         return ok
 
+    def snapshot(self):
+        """JSON-serialisable dict of the original controls (for a later,
+        cross-callback Restore -- the objects in _original don't survive)."""
+        if self._original is None:
+            self.capture_original()
+        return dict((k, str(v)) for k, v in (self._original or {}).items())
+
+    def restore_from_snapshot(self, snap):
+        """Re-apply a snapshot() dict.  ElementSize round-trips via Quantity;
+        everything else is best-effort (enums / bools may not accept a string).
+        Always clears the generated mesh so the model isn't stuck on a fine one."""
+        ok = True
+        m = self.mesh
+        for attr, sval in (snap or {}).items():
+            try:
+                if attr == "ElementSize":
+                    m.ElementSize = G.require("Quantity")(sval)
+                elif sval in ("True", "False"):
+                    setattr(m, attr, sval == "True")
+                else:
+                    setattr(m, attr, sval)
+            except Exception:
+                ok = False
+        try:
+            self.model.Mesh.ClearGeneratedData()
+        except Exception:
+            pass
+        return ok
+
     # -- generation -------------------------------------------------------
     def apply_size(self, size_m):
         self.strategy.apply(self.mesh, size_m)

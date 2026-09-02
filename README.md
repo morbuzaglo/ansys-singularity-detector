@@ -61,12 +61,13 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
   convergence charts, each PNG **plus** its CSV.
 - **M9** the **ACT ribbon**: `python -m devtools.extension_deployer` installs
   **SingularityDetector** into Ansys; in Mechanical the **Singularity Detector**
-  tab has **Run Singularity Study** (runs the sweep on *your* analysis, restores
-  your mesh, shells out to the venv for the analysis, drops the three result
-  contours in the tree + a summary), **Add Contours**, **Study Settings**.
+  tab has **Run Singularity Study** (runs the sweep on *your* analysis, leaves
+  it meshed+solved at the finest level, shells out to the venv, drops the three
+  result contours + a summary), **Restore Original Mesh**, **Study Settings**
+  (a "Singularity Study" tree object with Details fields), **Add Contours**.
   See [`docs/TRYING_IT.md`](docs/TRYING_IT.md).
 
-`pytest tests --run-benchmarks` green (116 unit + per-milestone mechanical
+`pytest tests --run-benchmarks` green (124 unit + per-milestone mechanical
 tests). Tracker: [`docs/milestones.md`](docs/milestones.md). Next: **M10**
 cross-version validation + `run_validation.py`; **M11** `.wbex` packaging.
 

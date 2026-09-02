@@ -38,8 +38,10 @@ def main():
     analysis, _support, _faces = model_setup.build_clean_tension_analysis(
         Model, geo, force_newtons=1000.0)      # noqa: F821
 
-    summary = act_study.run(analysis, sizes, run_dir,
-                            progress=lambda f, m: sys.stderr.write("[%3d%%] %s\n" % (int(100 * f), m)))
+    restore = os.environ.get("SD_PROBE_RESTORE") in ("1", "true", "True")
+    summary = act_study.run(
+        analysis, sizes, run_dir, restore=restore,
+        progress=lambda f, m: sys.stderr.write("[%3d%%] %s\n" % (int(100 * f), m)))
     sys.stdout.write("SUMMARY_JSON_BEGIN\n")
     sys.stdout.write(json.dumps(summary))
     sys.stdout.write("\nSUMMARY_JSON_END\n")

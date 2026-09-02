@@ -18,10 +18,39 @@
 # ==========================================================================
 
 import os
+import sys
 import csv
 import math
 
+_HERE = os.path.dirname(os.path.abspath(__file__)) if "__file__" in dir() else None
+if _HERE and _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+try:
+    from mech_env import G as _G       # engine names bound by the <script> module
+except Exception:
+    _G = None
+
 _CACHE = {}          # path -> _Field
+
+
+def _ext_api():
+    """ACT injects ExtAPI only into the <script> module (main.py). Imported
+    modules get it via mech_env.G, which main.py binds on load / per callback."""
+    if _G is not None and getattr(_G, "ExtAPI", None) is not None:
+        return _G.ExtAPI
+    return None
+
+
+def _log(msg):
+    e = _ext_api()
+    try:
+        if e is not None:
+            e.Log.WriteMessage("[SingularityDetector] " + str(msg))
+            return
+    except Exception:
+        pass
+    print("[SingularityDetector] " + str(msg))
 
 # Set this (e.g. from a wizard / a preference) to point the callbacks at a
 # specific contour_fields.csv; otherwise they search the analysis working dir.
@@ -193,23 +222,41 @@ _RESULT_NAMES = ("Raw Stress (Original FE Solution)",
                  "Singularity-Filtered Stress")
 
 
-def add_singularity_contours(analysis):
-    """Toolbar button: drop the three custom results into the tree.  They
-    evaluate from contour_fields.csv in the analysis working dir (produced by
-    the external pipeline); if it is absent the results show the no-value
-    sentinel until the study has been run."""
-    ext = ExtAPI.ExtensionManager.CurrentExtension          # noqa: F821
-    made = []
+def add_singularity_contours(analysis, ext=None):
+    """Drop the three custom results into the tree.  They evaluate from
+    contour_fields.csv (produced by the external pipeline); absent it, they show
+    the no-value sentinel until the study has been run.
+
+    ``ext`` = the current extension handle (main.py passes
+    ExtAPI.ExtensionManager.CurrentExtension).  If not given we fall back to the
+    1-argument CreateResultObject form (valid per the ACTResults sample)."""
+    if ext is None:
+        e = _ext_api()
+        if e is not None:
+            try:
+                ext = e.ExtensionManager.CurrentExtension
+            except Exception:
+                ext = None
+    made, errs = [], []
     for name in _RESULT_NAMES:
-        try:
-            analysis.CreateResultObject(name, ext)
+        ok = False
+        for attempt in ((name, ext), (name,)):
+            if attempt[-1] is None and len(attempt) == 2:
+                continue
+            try:
+                analysis.CreateResultObject(*attempt)
+                ok = True
+                break
+            except Exception:
+                exc = sys.exc_info()[1]
+        if ok:
             made.append(name)
-        except Exception:
-            pass
-    try:
-        ExtAPI.Log.WriteMessage("[SingularityDetector] added results: " + ", ".join(made))  # noqa: F821
-    except Exception:
-        print("[SingularityDetector] added results: " + ", ".join(made))
+        else:
+            errs.append("%s: %s" % (name, exc))
+    _log("added results: " + ", ".join(made) + ("  |  errors: " + "; ".join(errs) if errs else ""))
+    if errs and not made:
+        raise RuntimeError("could not create any Singularity Detector result: " + "; ".join(errs))
+    return made
 
 
 # --- the three <evaluate> callbacks the extension XML points at ----------

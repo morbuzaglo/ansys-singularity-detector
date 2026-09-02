@@ -107,12 +107,17 @@ def _messages():
     return out
 
 
-def run(analysis, sizes_m, run_dir, progress=None, extra_bc_geometry=None):
+def run(analysis, sizes_m, run_dir, progress=None, extra_bc_geometry=None,
+        restore=False):
     """Run the study on `analysis` (an existing Static Structural analysis).
 
     sizes_m  : list of characteristic element sizes in metres, decreasing.
     run_dir  : directory to write study_result.json + level_XX/ into.
     progress : optional callable(fraction_0_1, message).
+    restore  : if False (default, spec S7) the model is left MESHED + SOLVED at
+               the finest level, and an sd_original_mesh.json snapshot is written
+               for the separate "Restore Original Mesh" action; if True the
+               original mesh controls are re-applied here.
     Returns the summary dict (also written to disk).
     """
     _bind_globals(globals())
@@ -160,6 +165,12 @@ def run(analysis, sizes_m, run_dir, progress=None, extra_bc_geometry=None):
 
         mm = mesh_manager.MeshManager(model)
         summary["original_mesh"] = mm.capture_original()
+        try:
+            _write_json(os.path.join(run_dir, "sd_original_mesh.json"), mm.snapshot())
+            _write_json(os.path.join(analysis.WorkingDir, "sd_original_mesh.json"),
+                        mm.snapshot())
+        except Exception:
+            pass
         step("original-captured")
 
         sol = analysis.Solution
@@ -207,11 +218,29 @@ def run(analysis, sizes_m, run_dir, progress=None, extra_bc_geometry=None):
             _write_json(os.path.join(run_dir, "study_result.json"), summary)  # checkpoint
             step("level-%d-ok" % i)
 
+        # tidy the temporary SD_ result objects off the user's tree (spec S9)
         try:
-            summary["restore_ok"] = bool(mm.restore_original())
+            rs.remove()
+            step("temp-results-removed")
         except Exception:
-            summary["restore_ok"] = False
-        step("mesh-restored")
+            pass
+
+        if restore:
+            try:
+                summary["restore_ok"] = bool(mm.restore_original())
+            except Exception:
+                summary["restore_ok"] = False
+            step("mesh-restored")
+        else:
+            # spec S7: leave the model meshed + solved at the finest level; the
+            # last loop iteration already did that. Re-solve if it went stale.
+            summary["left_at_finest_mesh"] = True
+            try:
+                if str(sol.Status) != "Done":
+                    sol.Solve(True)
+            except Exception:
+                pass
+            step("left-at-finest")
 
         ok = [lv for lv in summary["levels"] if lv.get("status") == "ok"]
         peaks = []

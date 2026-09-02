@@ -56,12 +56,17 @@ def test_in_session_study_passes(result):
     assert summ["in_session"] is True
     assert len(summ["levels"]) == 4
     assert [lv["status"] for lv in summ["levels"]] == ["ok"] * 4
-    assert summ["steps"][-1] == "mesh-restored"
 
 
-def test_original_mesh_restored(result):
-    summ, _ = result
-    assert summ["restore_ok"] is True
+def test_model_left_at_finest_mesh_by_default(result):
+    summ, run_dir = result
+    # spec S7: default leaves the model at the finest mesh, NOT restored
+    assert summ.get("left_at_finest_mesh") is True
+    assert "mesh-restored" not in summ["steps"]
+    assert "left-at-finest" in summ["steps"]
+    assert "temp-results-removed" in summ["steps"]
+    # snapshot for a later Restore Original Mesh
+    assert (run_dir / "sd_original_mesh.json").is_file()
     assert "original_mesh" in summ
 
 
