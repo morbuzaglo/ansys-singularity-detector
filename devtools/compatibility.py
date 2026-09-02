@@ -37,6 +37,9 @@ class DpfCapabilities:
 
 @functools.lru_cache(maxsize=1)
 def probe_dpf() -> DpfCapabilities:
+    import os
+
+    os.environ.setdefault("ANSYS_DPF_ACCEPT_LA", "Y")   # accept the DPF licence agreement
     notes: list[str] = []
     try:
         from ansys.dpf import core as dpf

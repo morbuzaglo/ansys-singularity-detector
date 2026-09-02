@@ -15,7 +15,7 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
 
 ## Status
 
-**Milestones 0–5 complete on 2025 R2.**
+**Milestones 0–6 complete on 2025 R2.**
 
 - **M0** `python devtools/run_milestone0.py` — no human in Mechanical: detect
   Ansys → licence preflight → PyMechanical embedded → import STEP → static
@@ -38,13 +38,18 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
   **re-entrant corner → singular** (λ ≈ 0.46, theory 0.4555); evidence gap 0.77.
 - **M5** `python -m devtools.secondary_metrics <study_dir>` — supporting signals
   (spec §28–32): nodal-difference persistence, ZZ-lite discretisation error,
-  hotspot localisation (shrinking hot region + growing peak), geometry/BC prior
-  (re-entrant edge detection), global-solution sanity gate. All separate the
-  corner from the hole; the sanity gate stays open for both stable solves.
+  hotspot localisation, geometry/BC prior, global-solution sanity gate.
+- **M6** `python -m devtools.analyze_study <study_dir>` — the full pipeline:
+  cross_mesh → classifier → secondary metrics → **Singularity Confidence**
+  (0–100, spec §33 weighting × the S32 sanity gate) → **region clustering**
+  (spec §34). Writes `singularity_analysis.json` + `confidence_field.npz`.
+  **L-bracket → "singular", confidence 77.6 (probable singularity), one region
+  on the re-entrant edge (λ ≈ 0.46); plate-with-hole → "convergent",
+  confidence 2.7, zero regions.**
 
-`pytest tests --run-benchmarks` green. Tracker:
-[`docs/milestones.md`](docs/milestones.md). Next: **M6** Singularity Confidence
-score (weighted combination + region clustering; spec §33–34).
+`pytest tests --run-benchmarks` green (82 unit + per-milestone mechanical
+tests). Tracker: [`docs/milestones.md`](docs/milestones.md). Next: **M7** custom
+Mechanical contours (Singularity Confidence [%] + Singularity-Filtered Stress).
 
 Working Ansys target on this machine: **2025 R2 / 252** (primary spec target
 2025 R1 / 251 is not installed — [`docs/ansys_environment.md`](docs/ansys_environment.md)).

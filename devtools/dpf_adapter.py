@@ -38,6 +38,27 @@ def _dpf():
     return dpf, caps
 
 
+def eval_retry(op, tries: int = 5, base_sleep: float = 3.0):
+    """Evaluate a DPF operator, retrying transient 'License check failed' /
+    connection errors with backoff (the FlexLM vendor daemon is occasionally
+    flaky under load).  Raises the last error if all tries fail."""
+    import time
+
+    last = None
+    for k in range(tries):
+        try:
+            return op.eval()
+        except Exception as exc:  # noqa: BLE001
+            msg = str(exc)
+            last = exc
+            transient = ("License check failed" in msg or "licen" in msg.lower()
+                         or "connect" in msg.lower() or "timeout" in msg.lower())
+            if not transient or k == tries - 1:
+                raise
+            time.sleep(base_sleep * (k + 1))
+    raise last
+
+
 @dataclasses.dataclass
 class LevelField:
     """Nodal von Mises field of one solved level, plus the live DPF handle so the
@@ -72,7 +93,8 @@ def read_von_mises_nodal(rst_path: str) -> LevelField:
 
     stress = model.results.stress()
     stress.inputs.requested_location.connect(dpf.locations.nodal)
-    vm_field = ops.invariant.von_mises_eqv_fc(fields_container=stress.eval()).eval()[0]
+    vm_field = eval_retry(ops.invariant.von_mises_eqv_fc(
+        fields_container=eval_retry(stress)))[0]
     vm = np.array(vm_field.data, dtype=float).reshape(-1)
     unit = getattr(vm_field, "unit", "") or ""
 
@@ -156,4 +178,4 @@ def _dpf_map(src_field, tgt: np.ndarray) -> np.ndarray:
         coordinates=coord_field,
         create_support=True,
     )
-    return np.array(op.eval()[0].data, dtype=float).reshape(-1)
+    return np.array(eval_retry(op)[0].data, dtype=float).reshape(-1)

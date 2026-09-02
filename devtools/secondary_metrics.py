@@ -170,11 +170,12 @@ def nodal_disagreement(rst_path: str) -> dict:
     all_ids = np.array(mesh.nodes.scoping.ids, np.int64)
     pos = {int(x): i for i, x in enumerate(all_ids)}
 
+    er = dpf_adapter.eval_retry
     s = model.results.stress()                        # ElementalNodal by default
-    vm_fc = ops.invariant.von_mises_eqv_fc(fields_container=s.eval())
-    diff_f = ops.averaging.nodal_difference_fc(fields_container=vm_fc.outputs.fields_container).eval()[0]
-    frac_f = ops.averaging.nodal_fraction_fc(fields_container=vm_fc.outputs.fields_container).eval()[0]
-    avg_f = ops.averaging.to_nodal_fc(fields_container=vm_fc.outputs.fields_container).eval()[0]
+    vm_fc = er(ops.invariant.von_mises_eqv_fc(fields_container=er(s)))
+    diff_f = er(ops.averaging.nodal_difference_fc(fields_container=vm_fc))[0]
+    frac_f = er(ops.averaging.nodal_fraction_fc(fields_container=vm_fc))[0]
+    avg_f = er(ops.averaging.to_nodal_fc(fields_container=vm_fc))[0]
 
     ids = np.array(diff_f.scoping.ids, np.int64)
     idx = np.array([pos.get(int(x), -1) for x in ids])
@@ -300,7 +301,7 @@ def geometry_prior(rst_path: str, hotspot_xyz, bc_face_geometry: dict | None = N
 
     # skin the solid, find edges shared by exactly two skin faces, measure the
     # dihedral angle; concave & sharp -> re-entrant
-    reentrant_pts = _reentrant_edge_points(dpf, mesh, reentrant_angle_deg)
+    reentrant_pts = reentrant_edge_points(rst_path, reentrant_angle_deg)
     d_edge = np.nan
     if reentrant_pts.size:
         d_edge = float(np.min(np.linalg.norm(reentrant_pts - hs, axis=1)) / diag)
@@ -326,6 +327,33 @@ def geometry_prior(rst_path: str, hotspot_xyz, bc_face_geometry: dict | None = N
         "prior": prior,
         "reasons": reasons,
     }
+
+
+def reentrant_edge_points(rst_path: str, angle_deg: float = 200.0) -> np.ndarray:
+    """Public: (K,3) points sampled along re-entrant (concave, sharp) surface
+    edges of the model in ``rst_path``.  Empty array if none / on failure."""
+    from devtools import dpf_adapter
+    import os
+    dpf, _ = dpf_adapter._dpf()
+    model = dpf.Model(os.path.abspath(rst_path))
+    return _reentrant_edge_points(dpf, model.metadata.meshed_region, angle_deg)
+
+
+def per_point_geometry_prior(coords, reentrant_pts, bc_centroids, diag) -> np.ndarray:
+    """0..1 prior at each of ``coords`` (M,3): high near a re-entrant edge,
+    moderate near a BC face centroid.  Supporting prior only (spec S31)."""
+    coords = np.asarray(coords, float).reshape(-1, 3)
+    g = np.zeros(coords.shape[0])
+    diag = float(diag) or 1.0
+    if reentrant_pts is not None and len(reentrant_pts):
+        from scipy.spatial import cKDTree
+        d = cKDTree(np.asarray(reentrant_pts, float)).query(coords, k=1)[0] / diag
+        g = np.maximum(g, np.clip((0.06 - d) / 0.06, 0.0, 1.0))
+    if bc_centroids is not None and len(bc_centroids):
+        from scipy.spatial import cKDTree
+        d = cKDTree(np.asarray(bc_centroids, float)).query(coords, k=1)[0] / diag
+        g = np.maximum(g, 0.5 * np.clip((0.05 - d) / 0.05, 0.0, 1.0))
+    return g
 
 
 def _reentrant_edge_points(dpf, mesh, angle_deg):
