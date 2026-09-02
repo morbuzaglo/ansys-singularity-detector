@@ -65,7 +65,11 @@ def _setup_axial_bar(model, geo_path, force_n):
     return model_setup.build_axial_bar_analysis(model, geo_path, force_newtons=force_n)
 
 
-SETUPS = {"axial_bar": _setup_axial_bar}
+def _setup_clean_tension(model, geo_path, force_n):
+    return model_setup.build_clean_tension_analysis(model, geo_path, force_newtons=force_n)
+
+
+SETUPS = {"axial_bar": _setup_axial_bar, "clean_tension": _setup_clean_tension}
 
 
 def _run_dir():

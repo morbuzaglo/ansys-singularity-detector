@@ -15,7 +15,7 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
 
 ## Status
 
-**Milestones 0–3 complete on 2025 R2.**
+**Milestones 0–4 complete on 2025 R2.**
 
 - **M0** `python devtools/run_milestone0.py` — no human in Mechanical: detect
   Ansys → licence preflight → PyMechanical embedded → import STEP → static
@@ -29,15 +29,17 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
   a failure), `convergence.csv`, guarded `cleanup()`, provisional trend verdict.
 - **M3** `python -m devtools.cross_mesh <study_dir>` — spatial cross-mesh
   mapping: read nodal von Mises + coords from each preserved `.rst` (DPF), map
-  every coarser level onto the finest mesh's node locations (official
-  `mapping.on_coordinates`, scipy fallback, choice recorded), emit the
-  σ_vm(x, hᵢ) series + per-point divergence ratio. Mapping accuracy is
-  independently validated (analytic linear field → machine precision; DPF vs
-  scipy agree) before it can feed a classifier.
+  every coarser level onto the finest mesh's node locations, emit the
+  σ_vm(x, hᵢ) series. Mapping accuracy independently validated first.
+- **M4** `python -m devtools.classify_study <study_dir>` — primary singularity
+  classifier: increment-ratio analysis + finite (`σ∞+C·hᵖ`) vs divergent
+  (`B+A·h^(-λ)`) model fit compared on residual + plausibility, localised to the
+  hotspot neighbourhood. **plate-with-hole → convergent** (Kt limit 3.05);
+  **re-entrant corner → singular** (λ ≈ 0.46, theory 0.4555); evidence gap 0.77.
 
 `pytest tests --run-benchmarks` green. Tracker:
-[`docs/milestones.md`](docs/milestones.md). Next: **M4** primary
-singularity classifier (finite-limit vs divergent fit; spec §26/§27).
+[`docs/milestones.md`](docs/milestones.md). Next: **M5** secondary metrics
+(nodal-difference, energy error, hotspot-radius, priors, global sanity gate).
 
 Working Ansys target on this machine: **2025 R2 / 252** (primary spec target
 2025 R1 / 251 is not installed — [`docs/ansys_environment.md`](docs/ansys_environment.md)).
