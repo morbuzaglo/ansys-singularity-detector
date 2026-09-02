@@ -26,7 +26,19 @@ import json
 import time
 import subprocess
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
+# ACT execs this script; __file__ may or may not be defined depending on the
+# loader.  Fall back to every plausible location of the extension folder.
+try:
+    _HERE = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    _HERE = None
+if not _HERE or not os.path.isfile(os.path.join(_HERE, "visualization.py")):
+    for _c in list(sys.path) + [os.getcwd()]:
+        if _c and os.path.isfile(os.path.join(_c, "visualization.py")):
+            _HERE = _c
+            break
+if not _HERE:
+    _HERE = os.getcwd()
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 

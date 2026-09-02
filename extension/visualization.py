@@ -187,8 +187,9 @@ def fill_collector(result, collector, column, csv_path=None):
 
 
 # --- toolbar callback ---------------------------------------------------
-_RESULT_NAMES = ("Raw Stress -- Original FE Solution",
-                 "Singularity Confidence [%]",
+# these MUST match the <result name="..."> in SingularityDetector.xml
+_RESULT_NAMES = ("Raw Stress (Original FE Solution)",
+                 "Singularity Confidence",
                  "Singularity-Filtered Stress")
 
 

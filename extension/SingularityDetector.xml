@@ -1,10 +1,3 @@
-<!--
-  Ansys Mechanical ACT extension : Automatic Stress Singularity Detection.
-  Runtime IronPython 2.7 (Mechanical 2025 R1+). GUID is stable for the life of
-  the extension (do not change it). The heavy numpy/DPF analysis runs in the
-  repo .venv as a subprocess (see extension/main.py); config in sd_config.json
-  next to the script, written by devtools/extension_deployer.py.
--->
 <extension version="1" minorversion="0" name="SingularityDetector">
 
   <author>Mordechay Buzaglo</author>
@@ -19,18 +12,18 @@
       <oninit>on_init</oninit>
     </callbacks>
 
-    <toolbar name="Singularity Detector" caption="Singularity Detector">
-      <entry name="Run Singularity Study" icon="result">
+    <toolbar name="SingularityDetector" caption="Singularity Detector">
+      <entry name="RunStudy" icon="result" caption="Run Singularity Study">
         <callbacks>
           <onclick>run_singularity_study</onclick>
         </callbacks>
       </entry>
-      <entry name="Add Contours" icon="result">
+      <entry name="AddContours" icon="result" caption="Add Contours">
         <callbacks>
           <onclick>add_contours</onclick>
         </callbacks>
       </entry>
-      <entry name="Study Settings" icon="result">
+      <entry name="StudySettings" icon="result" caption="Study Settings">
         <callbacks>
           <onclick>show_settings</onclick>
         </callbacks>
@@ -40,9 +33,8 @@
 
   <simdata context="Mechanical">
 
-    <!-- spec S36: the untouched solver result, always available for reference -->
-    <result name="Raw Stress -- Original FE Solution" version="1"
-            caption="Raw Stress -- Original FE Solution"
+    <result name="Raw Stress (Original FE Solution)" version="1"
+            caption="Raw Stress (Original FE Solution)"
             unit="Stress" icon="result" location="node" type="scalar">
       <callbacks>
         <evaluate>evaluate_raw_stress</evaluate>
@@ -50,17 +42,15 @@
       <property name="Geometry" caption="Geometry" control="scoping"></property>
     </result>
 
-    <!-- spec S35: 0..100 engineering classification score -->
-    <result name="Singularity Confidence [%]" version="1"
+    <result name="Singularity Confidence" version="1"
             caption="Singularity Confidence [%]"
-            unit="" icon="result" location="node" type="scalar">
+            icon="result" location="node" type="scalar">
       <callbacks>
         <evaluate>evaluate_singularity_confidence</evaluate>
       </callbacks>
       <property name="Geometry" caption="Geometry" control="scoping"></property>
     </result>
 
-    <!-- spec S37: post-processing ESTIMATE, never labelled true/correct/exact -->
     <result name="Singularity-Filtered Stress" version="1"
             caption="Singularity-Filtered Stress (estimate)"
             unit="Stress" icon="result" location="node" type="scalar">

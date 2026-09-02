@@ -36,7 +36,7 @@ sys.path.insert(0, str(REPO))
 
 from devtools import stress_recovery  # noqa: E402
 
-RAW_NAME = "Raw Stress -- Original FE Solution"
+RAW_NAME = "Raw Stress (Original FE Solution)"
 CONF_NAME = "Singularity Confidence [%]"
 FILT_NAME = "Singularity-Filtered Stress"
 

@@ -47,3 +47,7 @@ desktop.ini
 # (add specific fixtures under test_models/ with `git add -f` once vetted)
 test_models/*.scdocx
 test_models/*.pmdb
+
+# per-machine ACT extension config (written by extension_deployer)
+extension/sd_config.json
+extension/sd_study_settings.json
