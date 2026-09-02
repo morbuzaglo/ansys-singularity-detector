@@ -15,7 +15,7 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
 
 ## Status
 
-**Milestones 0–2 complete on 2025 R2.**
+**Milestones 0–3 complete on 2025 R2.**
 
 - **M0** `python devtools/run_milestone0.py` — no human in Mechanical: detect
   Ansys → licence preflight → PyMechanical embedded → import STEP → static
@@ -27,10 +27,17 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
   --h0 0.01` — full convergence-study controller: N-level loop, per-level
   `level_XX/{level.json,file.rst}` preserved, original mesh restored (even after
   a failure), `convergence.csv`, guarded `cleanup()`, provisional trend verdict.
+- **M3** `python -m devtools.cross_mesh <study_dir>` — spatial cross-mesh
+  mapping: read nodal von Mises + coords from each preserved `.rst` (DPF), map
+  every coarser level onto the finest mesh's node locations (official
+  `mapping.on_coordinates`, scipy fallback, choice recorded), emit the
+  σ_vm(x, hᵢ) series + per-point divergence ratio. Mapping accuracy is
+  independently validated (analytic linear field → machine precision; DPF vs
+  scipy agree) before it can feed a classifier.
 
-`pytest tests --run-benchmarks` green (31 tests). Tracker:
-[`docs/milestones.md`](docs/milestones.md). Next: **M3** spatial cross-mesh
-stress mapping (spec §24/§25).
+`pytest tests --run-benchmarks` green. Tracker:
+[`docs/milestones.md`](docs/milestones.md). Next: **M4** primary
+singularity classifier (finite-limit vs divergent fit; spec §26/§27).
 
 Working Ansys target on this machine: **2025 R2 / 252** (primary spec target
 2025 R1 / 251 is not installed — [`docs/ansys_environment.md`](docs/ansys_environment.md)).
