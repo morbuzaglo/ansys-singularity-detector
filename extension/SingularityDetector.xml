@@ -39,8 +39,8 @@
   <simdata context="Mechanical">
 
     <object name="Singularity Study" version="1" caption="Singularity Study" icon="result">
-      <property name="Refinements" caption="Refinements (extra mesh levels)"
-               control="integer" default="3"></property>
+      <property name="MeshLevels" caption="Mesh levels (total, min 3)"
+               control="integer" default="4"></property>
       <property name="Ratio" caption="Size ratio  h(i+1) / h(i)"
                control="double" default="0.75"></property>
       <property name="ConfidenceThreshold" caption="Confidence threshold [%]"

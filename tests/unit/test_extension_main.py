@@ -54,22 +54,30 @@ def test_read_settings_falls_back_to_defaults_and_json(monkeypatch, tmp_path):
     m = _load_main(monkeypatch, tmp_path)
     # no tree object, no json -> defaults
     s = m._read_settings(None)
-    assert s["refinements"] == 3 and s["ratio"] == 0.75 and s["confidence_threshold"] == 70.0
-    # json override, with clamping (ratio 0.95 -> 0.90, refinements 20 -> 8)
+    assert s["mesh_levels"] == 4 and s["ratio"] == 0.75 and s["confidence_threshold"] == 70.0
+    # json override, with clamping (ratio 0.95 -> 0.90, mesh_levels 20 -> 8)
     (tmp_path / "sd_study_settings.json").write_text(
-        json.dumps({"ratio": 0.95, "refinements": 20}), encoding="utf-8")
+        json.dumps({"ratio": 0.95, "mesh_levels": 20}), encoding="utf-8")
     s = m._read_settings(None)
     assert s["ratio"] == 0.90
-    assert s["refinements"] == 8
+    assert s["mesh_levels"] == 8
+    # legacy "refinements" key is accepted (total = refinements + 1), then clamped
+    (tmp_path / "sd_study_settings.json").write_text(
+        json.dumps({"refinements": 3}), encoding="utf-8")
+    s = m._read_settings(None)
+    assert s["mesh_levels"] == 4
+    assert "refinements" not in s
 
 
 def test_plan_sizes_geometric_sequence(monkeypatch, tmp_path):
     m = _load_main(monkeypatch, tmp_path)
     monkeypatch.setattr(m, "_current_size_m", lambda model: 0.01)
-    sizes = m._plan_sizes(None, {"ratio": 0.75, "refinements": 3})
+    sizes = m._plan_sizes(None, {"ratio": 0.75, "mesh_levels": 4})
     assert len(sizes) == 4
     assert sizes[0] == pytest.approx(0.01)
     assert sizes[-1] == pytest.approx(0.01 * 0.75 ** 3)
+    # clamped to at least MIN_MESH_LEVELS
+    assert len(m._plan_sizes(None, {"ratio": 0.75, "mesh_levels": 1})) == m.MIN_MESH_LEVELS
 
 
 def test_run_external_builds_module_command(monkeypatch, tmp_path):

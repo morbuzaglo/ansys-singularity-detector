@@ -158,6 +158,34 @@ class _Field(object):
         return self.vals[column][i]
 
 
+_META_CACHE = {}
+
+
+def _meta_for(field_path):
+    """Read contour_meta.json sitting next to a resolved contour_fields.csv.
+    Returns {} if absent."""
+    try:
+        d = os.path.dirname(os.path.abspath(field_path))
+    except Exception:
+        return {}
+    if d in _META_CACHE:
+        return _META_CACHE[d]
+    meta = {}
+    p = os.path.join(d, "contour_meta.json")
+    try:
+        if os.path.isfile(p):
+            import json as _json
+            f = open(p, "r")
+            try:
+                meta = _json.load(f) or {}
+            finally:
+                f.close()
+    except Exception:
+        meta = {}
+    _META_CACHE[d] = meta
+    return meta
+
+
 def load_field(csv_path=None, working_dir=None):
     """Cache and return the _Field for contour_fields.csv.
 
@@ -189,6 +217,10 @@ def fill_collector(result, collector, column, csv_path=None):
     study has not been run yet, or Mechanical is re-evaluating mid-study) --
     stores System.Double.MaxValue rather than raising, so the result just shows
     "no data" instead of erroring on every solve.
+
+    For the 'confidence_pct' column, nodes below the study's confidence
+    threshold (contour_meta.json) are stored as the no-data sentinel too, so the
+    contour lights up only where a singularity is actually indicated.
     """
     from System import Double        # noqa: F401  (.NET, present in Mechanical)
 
@@ -212,6 +244,13 @@ def fill_collector(result, collector, column, csv_path=None):
     except Exception:
         mesh = None
 
+    mask_below = None
+    if column == "confidence_pct":
+        try:
+            mask_below = float(_meta_for(fld.path).get("threshold"))
+        except Exception:
+            mask_below = None
+
     for nid in collector.Ids:
         xyz = None
         if mesh is not None:
@@ -225,6 +264,8 @@ def fill_collector(result, collector, column, csv_path=None):
             continue
         v = fld.value_at(xyz, column)
         if v is None or (isinstance(v, float) and math.isnan(v)):
+            collector.SetValues(nid, [Double.MaxValue])
+        elif mask_below is not None and float(v) < mask_below:
             collector.SetValues(nid, [Double.MaxValue])
         else:
             collector.SetValues(nid, [float(v)])

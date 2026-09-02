@@ -230,3 +230,46 @@ def test_fill_collector_no_csv_fills_sentinel_and_does_not_raise(monkeypatch):
     # every value is the .NET Double.MaxValue sentinel
     import System
     assert all(v == [System.Double.MaxValue] for v in coll.set.values())
+
+
+class _MeshXY(object):
+    def __init__(self, pts):
+        self._pts = pts
+
+    def NodeById(self, nid):
+        x, y, z = self._pts[nid]
+        return type("N", (), {"X": x, "Y": y, "Z": z})()
+
+
+def test_fill_collector_masks_confidence_below_threshold(tmp_path, monkeypatch):
+    import System
+    viz = _load("visualization")
+    monkeypatch.setattr(viz, "_MISSING_LOGGED", [False])
+
+    csv_p = tmp_path / "contour_fields.csv"
+    csv_p.write_text(
+        "x,y,z,raw_stress,confidence_pct,filtered_stress,recovery_status\n"
+        "0,0,0,10,20,10,raw\n"
+        "1,0,0,10,85,10,raw\n", encoding="utf-8")
+    (tmp_path / "contour_meta.json").write_text('{"threshold": 70.0}', encoding="utf-8")
+
+    class _An(object):
+        WorkingDir = None
+        MeshData = _MeshXY({1: (0.0, 0.0, 0.0), 2: (1.0, 0.0, 0.0)})
+
+    class _R(object):
+        Analysis = _An()
+
+    viz._CACHE.clear()
+    viz._META_CACHE.clear()
+    coll = _Coll([1, 2])
+    viz.fill_collector(_R(), coll, "confidence_pct", csv_path=str(csv_p))
+    assert coll.set[1] == [System.Double.MaxValue]        # 20 < 70 -> hidden
+    assert coll.set[2] == [pytest.approx(85.0)]           # 85 >= 70 -> shown
+
+    # raw_stress column is never threshold-masked
+    viz._CACHE.clear()
+    coll2 = _Coll([1, 2])
+    viz.fill_collector(_R(), coll2, "raw_stress", csv_path=str(csv_p))
+    assert coll2.set[1] == [pytest.approx(10.0)]
+    assert coll2.set[2] == [pytest.approx(10.0)]

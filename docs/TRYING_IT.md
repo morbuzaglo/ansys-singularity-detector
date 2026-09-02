@@ -80,9 +80,10 @@ junctions the folder for edit-in-place; `--uninstall` removes it.
    **Singularity Detector** ribbon tab appears (Run / Restore Original Mesh /
    Study Settings / Add Contours).
 3. *(optional)* **Study Settings** -- inserts/selects a **"Singularity Study"**
-   object in the tree; set **Refinements**, **Ratio** (0.50-0.90), **Confidence
-   threshold [%]** and **Result quantity** in its Details view. Defaults are used
-   if you skip this.
+   object in the tree; set **Mesh levels** (total meshes solved, min 3, default
+   4 -- the progress window counts "mesh level k/N" over exactly this many),
+   **Ratio** (0.50-0.90), **Confidence threshold [%]** and **Result quantity**
+   in its Details view. Defaults are used if you skip this.
 4. Click **Run Singularity Study**. It:
    - runs the mesh-refinement study **on your analysis** (your geometry/BCs/loads
      untouched); the temporary result objects are named `SD_*` and removed at
@@ -96,10 +97,12 @@ junctions the folder for edit-in-place; `--uninstall` removes it.
      exponent, artifact folder with JSON + PNG charts).
    - A small status window shows "level N/M: meshing/solving -> analysing (DPF)
      -> done" (Mechanical is frozen while it runs -- that is expected).
-5. The Confidence contour is 0-100; the Filtered contour is the raw field with
-   the flagged region pulled toward the converged neighbourhood (grey /
-   max-double where "Not Recoverable"). **Raw Stress** is the untouched solver
-   field, there for comparison.
+5. The Confidence contour is 0-100 but **shows only nodes at/above the confidence
+   threshold** (the rest read as no-data/grey) so the singular regions stand out;
+   the Filtered contour is the raw field with the flagged region pulled toward
+   the converged neighbourhood (grey / max-double where "Not Recoverable").
+   **Raw Stress** is the untouched solver field (in Pa internally; Mechanical
+   shows it in your display unit), there for comparison.
 
 **Restore Original Mesh** puts your mesh controls back (from the
 `sd_original_mesh.json` snapshot the study wrote) -- then re-mesh + re-solve.

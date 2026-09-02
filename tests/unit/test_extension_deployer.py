@@ -43,17 +43,17 @@ def test_deploy_writes_config_and_settings(tmp_path):
     assert "venv_python" in cfg                                # may be None if no venv
 
     s = json.loads((folder / "sd_study_settings.json").read_text(encoding="utf-8"))
-    assert s["refinements"] == 3 and s["ratio"] == 0.75
+    assert s["mesh_levels"] == 4 and s["ratio"] == 0.75
 
 
 def test_redeploy_keeps_edited_settings(tmp_path):
     dest = tmp_path / "extensions"
     ed.deploy(version="252", dest=str(dest))
     sp = dest / "SingularityDetector" / "sd_study_settings.json"
-    sp.write_text(json.dumps({"refinements": 5, "ratio": 0.8}), encoding="utf-8")
+    sp.write_text(json.dumps({"mesh_levels": 6, "ratio": 0.8}), encoding="utf-8")
     ed.deploy(version="252", dest=str(dest))                   # again
     s = json.loads(sp.read_text(encoding="utf-8"))
-    assert s["refinements"] == 5                               # not clobbered
+    assert s["mesh_levels"] == 6                               # not clobbered
 
 
 def test_uninstall_removes_everything(tmp_path):

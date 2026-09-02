@@ -53,6 +53,52 @@ def _finest_char_size_m(study_dir: Path) -> float:
     return 1e-3
 
 
+# Values handed to a Mechanical custom Result Collector must be in
+# solver-consistent SI (Pa).  DPF returns the field in the .rst display unit,
+# which for a standard NMM structural model is MPa -- so the raw numbers are
+# ~1e6x too small when the ACT result evaluates them.  Calibrate the scale
+# against Mechanical's own finest-level peak (which carries a unit string)
+# rather than trusting DPF's unit attribute.
+_STRESS_TO_PA = {
+    "pa": 1.0, "n/m^2": 1.0, "n/m2": 1.0,
+    "kpa": 1e3, "mpa": 1e6, "n/mm^2": 1e6, "n/mm2": 1e6, "gpa": 1e9,
+    "bar": 1e5, "psi": 6894.757293168, "ksi": 6894757.293168,
+}
+_KNOWN_FACTORS = (1.0, 1e3, 1e6, 1e9)
+
+
+def _mech_finest_peak_pa(study_dir: Path):
+    """Mechanical's finest solved level peak equivalent stress, in Pa (or None)."""
+    try:
+        s = json.loads((study_dir / "study_result.json").read_text(encoding="utf-8"))
+        ok = [lv for lv in s.get("levels", []) if lv.get("status") == "ok"]
+        ok.sort(key=lambda lv: lv.get("actual_char_size_m") or 1e30)
+        if not ok:
+            return None
+        pe = (ok[0].get("results") or {}).get("peak_equivalent_stress") or {}
+        val = pe.get("value")
+        unit = str(pe.get("unit", "")).strip().lower().replace(" ", "")
+        if val and unit in _STRESS_TO_PA:
+            return float(val) * _STRESS_TO_PA[unit]
+    except Exception:
+        pass
+    return None
+
+
+def _stress_scale_to_pa(raw: np.ndarray, study_dir: Path):
+    """Return (factor, note) so raw * factor is in Pa."""
+    rmax = float(np.nanmax(raw)) if raw.size and np.isfinite(np.nanmax(raw)) else 0.0
+    peak_pa = _mech_finest_peak_pa(study_dir)
+    if peak_pa and rmax > 0:
+        ratio = peak_pa / rmax
+        for f in _KNOWN_FACTORS:
+            if 0.8 <= ratio / f <= 1.25:
+                return f, "calibrated to Mechanical finest-level peak (x{0:g})".format(f)
+        return 1.0, ("no clean factor vs Mechanical peak (ratio {0:.3g}); "
+                     "left as-is".format(ratio))
+    return 1.0, "no Mechanical peak reference; assumed already Pa"
+
+
 def build(study_dir: str, *, threshold: float = 70.0, make_png: bool = True) -> dict:
     d = Path(study_dir)
     npz = d / "confidence_field.npz"
@@ -74,10 +120,16 @@ def build(study_dir: str, *, threshold: float = 70.0, make_png: bool = True) -> 
     filt = rec.filtered_stress
     status = rec.status
 
+    # SI (Pa) copies for the ACT custom-result collector -- see _stress_scale_to_pa
+    scale_pa, scale_note = _stress_scale_to_pa(raw, d)
+    raw_pa = raw * scale_pa
+    filt_pa = filt * scale_pa
+
     np.savez_compressed(
         d / "contour_fields.npz",
         coords=coords, raw_stress=raw, confidence=confidence,
         filtered_stress=filt, recovery_status=status.astype("U16"),
+        raw_stress_pa=raw_pa, filtered_stress_pa=filt_pa, stress_scale_to_pa=scale_pa,
     )
 
     with open(d / "contour_fields.csv", "w", newline="", encoding="utf-8") as f:
@@ -86,21 +138,24 @@ def build(study_dir: str, *, threshold: float = 70.0, make_png: bool = True) -> 
                     "filtered_stress", "recovery_status"])
         for i in range(coords.shape[0]):
             w.writerow([coords[i, 0], coords[i, 1], coords[i, 2],
-                        raw[i], confidence[i],
-                        ("" if not np.isfinite(filt[i]) else filt[i]), status[i]])
+                        raw_pa[i], confidence[i],
+                        ("" if not np.isfinite(filt_pa[i]) else filt_pa[i]), status[i]])
 
     finite_filt = filt[np.isfinite(filt)]
+    _raw_unit = "Pa" if scale_pa != 1.0 else "MPa or Pa (uncalibrated -- see csv_unit_note)"
     summary = {
         "study_dir": str(d),
         "threshold": threshold,
         "n_nodes": int(coords.shape[0]),
+        "csv_stress_scale_to_pa": scale_pa,
+        "csv_unit_note": scale_note + " -- contour_fields.csv raw_stress/filtered_stress are in Pa",
         "fields": {
-            RAW_NAME: {"min": float(np.nanmin(raw)), "max": float(np.nanmax(raw)), "unit": "MPa"},
+            RAW_NAME: {"min": float(np.nanmin(raw)), "max": float(np.nanmax(raw)), "unit": _raw_unit},
             CONF_NAME: {"min": float(np.nanmin(confidence)), "max": float(np.nanmax(confidence)),
                         "unit": "%", "range": [0, 100]},
             FILT_NAME: {"min": float(finite_filt.min()) if finite_filt.size else None,
                         "max": float(finite_filt.max()) if finite_filt.size else None,
-                        "unit": "MPa",
+                        "unit": _raw_unit,
                         "note": "post-processing estimate -- NOT true/correct/exact stress"},
         },
         "recovery": rec.as_dict(),
@@ -121,6 +176,16 @@ def build(study_dir: str, *, threshold: float = 70.0, make_png: bool = True) -> 
             "max_reduction_pct": round(float(np.max(100.0 * (1.0 - rf / rr))), 1),
         }
     (d / "contours_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+
+    # small sidecar the IronPython visualization layer reads to (a) know the Pa
+    # scale and (b) hide sub-threshold nodes in the Confidence contour so the
+    # singular regions read clearly.
+    (d / "contour_meta.json").write_text(json.dumps({
+        "threshold": float(threshold),
+        "stress_scale_to_pa": float(scale_pa),
+        "n_nodes": int(coords.shape[0]),
+        "n_confidence_ge_threshold": int((confidence >= threshold).sum()),
+    }, indent=2), encoding="utf-8")
 
     if make_png:
         try:

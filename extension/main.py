@@ -50,8 +50,12 @@ import visualization
 import mech_env
 
 SETUP_OBJ_NAME = "Singularity Study"
-DEFAULT_SETTINGS = {"refinements": 3, "ratio": 0.75, "confidence_threshold": 70.0,
+# mesh_levels = TOTAL number of meshes solved in the sweep (initial + refinements),
+# i.e. what the progress window shows as "mesh level k/N".
+DEFAULT_SETTINGS = {"mesh_levels": 4, "ratio": 0.75, "confidence_threshold": 70.0,
                     "result_quantity": "Equivalent (von Mises)"}
+MIN_MESH_LEVELS = 3      # need >=3 points for a convergence fit
+MAX_MESH_LEVELS = 8
 
 
 # --------------------------------------------------------------- engine binding
@@ -251,7 +255,7 @@ def _read_settings(analysis):
     s = dict(DEFAULT_SETTINGS)
     obj = _find_setup(analysis)
     if obj is not None:
-        s["refinements"] = int(_prop(obj, "Refinements", s["refinements"]))
+        s["mesh_levels"] = int(_prop(obj, "MeshLevels", s["mesh_levels"]))
         s["ratio"] = float(_prop(obj, "Ratio", s["ratio"]))
         s["confidence_threshold"] = float(_prop(obj, "ConfidenceThreshold",
                                                 s["confidence_threshold"]))
@@ -263,9 +267,16 @@ def _read_settings(analysis):
                 s.update(json.load(open(p)))
             except Exception:
                 pass
+    # accept a legacy "refinements" key from an old json file
+    # (= extra levels beyond the initial mesh, so total = refinements + 1)
+    if "refinements" in s:
+        try:
+            s["mesh_levels"] = int(s.pop("refinements")) + 1
+        except Exception:
+            s.pop("refinements", None)
     # clamp ratio to the allowed band (spec S7)
     s["ratio"] = max(0.50, min(0.90, s["ratio"]))
-    s["refinements"] = max(1, min(8, int(s["refinements"])))
+    s["mesh_levels"] = max(MIN_MESH_LEVELS, min(MAX_MESH_LEVELS, int(s["mesh_levels"])))
     return s
 
 
@@ -299,14 +310,12 @@ def _current_size_m(model):
 
 
 def _plan_sizes(model, settings):
+    """Geometric size sequence of length ``mesh_levels`` (total meshes):
+    h0, h0*r, h0*r^2, ...  -- h0 is the model's current characteristic size."""
     h0 = _current_size_m(model)
     r = float(settings["ratio"])
-    n = int(settings["refinements"])
-    sizes = [h0]
-    for _ in range(n):
-        h0 = h0 * r
-        sizes.append(h0)
-    return sizes
+    n = max(MIN_MESH_LEVELS, min(MAX_MESH_LEVELS, int(settings["mesh_levels"])))
+    return [h0 * (r ** k) for k in range(n)]
 
 
 def _run_external(module, run_dir, status=None, frac=0.9):
@@ -374,13 +383,15 @@ def show_settings(analysis):
                 pass
         s = _read_settings(analysis)
         _msgbox("Edit the '%s' object in the tree (Details view):\n\n"
-                "  Refinements          : %s\n"
+                "  Mesh levels (total)  : %s   (initial mesh + refinements)\n"
                 "  Ratio (h[i+1]/h[i])  : %s\n"
                 "  Confidence threshold : %s %%\n"
                 "  Result quantity      : %s\n\n"
-                "The study uses the model's EXISTING loads and supports."
-                % (SETUP_OBJ_NAME, s["refinements"], s["ratio"],
-                   s["confidence_threshold"], s["result_quantity"]))
+                "The sweep solves this many meshes; the progress window shows\n"
+                "'mesh level k/%s'. The study uses the model's EXISTING loads\n"
+                "and supports."
+                % (SETUP_OBJ_NAME, s["mesh_levels"], s["ratio"],
+                   s["confidence_threshold"], s["result_quantity"], s["mesh_levels"]))
     else:
         p = os.path.join(_HERE, "sd_study_settings.json")
         _msgbox("Could not create the settings object; edit this file instead:\n%s" % p)
@@ -466,12 +477,18 @@ def run_singularity_study(analysis):
         if os.path.isfile(csv_path):
             try:
                 import shutil
-                shutil.copy2(csv_path, os.path.join(analysis.WorkingDir,
-                                                    "contour_fields.csv"))
+                for nm in ("contour_fields.csv", "contour_meta.json"):
+                    src = os.path.join(run_dir, nm)
+                    if os.path.isfile(src):
+                        shutil.copy2(src, os.path.join(analysis.WorkingDir, nm))
             except Exception:
                 pass
             visualization.CONTOUR_CSV_PATH = csv_path
             visualization._CACHE.clear()
+            try:
+                visualization._META_CACHE.clear()
+            except Exception:
+                pass
 
         ext = None
         try:

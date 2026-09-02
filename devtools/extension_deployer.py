@@ -65,7 +65,7 @@ EXT_FILES = ["main.py", "visualization.py", "act_study.py", "mech_env.py",
 EXT_DIRS = ["images"]
 EXT_XML = "SingularityDetector.xml"
 
-DEFAULT_STUDY_SETTINGS = {"refinements": 3, "ratio": 0.75,
+DEFAULT_STUDY_SETTINGS = {"mesh_levels": 4, "ratio": 0.75,
                           "confidence_threshold": 70.0}
 
 

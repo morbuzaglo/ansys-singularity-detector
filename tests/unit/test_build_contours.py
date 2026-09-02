@@ -79,6 +79,42 @@ def test_missing_npz_raises(tmp_path):
         bc.build(str(d), make_png=False)
 
 
+def test_csv_stress_calibrated_to_pa_against_mechanical_peak(tmp_path):
+    d, spike = _make_study(tmp_path)
+    src = np.load(d / "confidence_field.npz", allow_pickle=True)
+    raw_max_mpa = float(np.nanmax(src["raw_stress_finest"]))   # DPF numbers ~ MPa
+    # Mechanical's own finest-level peak, in MPa -> build_contours should infer x1e6
+    (d / "study_result.json").write_text(json.dumps({"levels": [
+        {"status": "ok", "actual_char_size_m": 0.006,
+         "results": {"peak_equivalent_stress": {"value": raw_max_mpa, "unit": "MPa"}}},
+    ]}), encoding="utf-8")
+
+    s = bc.build(str(d), make_png=False)
+    assert s["csv_stress_scale_to_pa"] == pytest.approx(1e6)
+
+    meta = json.loads((d / "contour_meta.json").read_text(encoding="utf-8"))
+    assert meta["stress_scale_to_pa"] == pytest.approx(1e6)
+    assert meta["threshold"] == 70.0
+
+    # CSV raw_stress column is now in Pa (1e6x the native npz value)
+    import csv as _csv
+    with open(d / "contour_fields.csv", newline="") as f:
+        rows = list(_csv.DictReader(f))
+    npz_raw = np.load(d / "contour_fields.npz", allow_pickle=True)["raw_stress"]
+    assert float(rows[0]["raw_stress"]) == pytest.approx(npz_raw[0] * 1e6, rel=1e-6)
+    # npz keeps a native copy AND an explicit Pa copy
+    z = np.load(d / "contour_fields.npz", allow_pickle=True)
+    assert float(z["stress_scale_to_pa"]) == pytest.approx(1e6)
+    assert np.allclose(z["raw_stress_pa"], z["raw_stress"] * 1e6)
+
+
+def test_csv_stress_left_as_is_without_a_reference(tmp_path):
+    d, spike = _make_study(tmp_path)          # study_result.json has no peak
+    bc.build(str(d), make_png=False)
+    meta = json.loads((d / "contour_meta.json").read_text(encoding="utf-8"))
+    assert meta["stress_scale_to_pa"] == 1.0
+
+
 def test_csv_roundtrips_with_visualization_lookup(tmp_path):
     import importlib.util
     d, spike = _make_study(tmp_path)
