@@ -23,9 +23,30 @@ import math
 
 _CACHE = {}          # path -> _Field
 
+# Set this (e.g. from a wizard / a preference) to point the callbacks at a
+# specific contour_fields.csv; otherwise they search the analysis working dir.
+CONTOUR_CSV_PATH = None
 
-def _run_dir_default():
-    return os.environ.get("SD_RUN_DIR") or os.getcwd()
+_CSV_NAME = "contour_fields.csv"
+
+
+def _candidate_paths(working_dir=None):
+    seen = []
+    if CONTOUR_CSV_PATH:
+        seen.append(CONTOUR_CSV_PATH)
+    env = os.environ.get("SD_CONTOUR_CSV")
+    if env:
+        seen.append(env)
+    for base in (working_dir, os.environ.get("SD_RUN_DIR"), os.getcwd()):
+        if base:
+            seen.append(os.path.join(base, _CSV_NAME))
+            # a study writes it one level up sometimes; also try ../
+            seen.append(os.path.join(base, "..", _CSV_NAME))
+    out = []
+    for p in seen:
+        if p and p not in out:
+            out.append(p)
+    return out
 
 
 class _Field(object):
@@ -108,15 +129,23 @@ class _Field(object):
         return self.vals[column][i]
 
 
-def load_field(csv_path=None):
-    """Cache and return the _Field for contour_fields.csv (default: run dir)."""
-    if csv_path is None:
-        csv_path = os.path.join(_run_dir_default(), "contour_fields.csv")
-    if csv_path not in _CACHE:
-        if not os.path.isfile(csv_path):
-            raise IOError("contour field file not found: " + csv_path)
-        _CACHE[csv_path] = _Field(csv_path)
-    return _CACHE[csv_path]
+def load_field(csv_path=None, working_dir=None):
+    """Cache and return the _Field for contour_fields.csv.
+
+    If ``csv_path`` is given it is used directly; otherwise search
+    CONTOUR_CSV_PATH, $SD_CONTOUR_CSV, the analysis working dir, $SD_RUN_DIR and
+    the cwd (see _candidate_paths)."""
+    if csv_path is not None:
+        cands = [csv_path]
+    else:
+        cands = _candidate_paths(working_dir)
+    for p in cands:
+        p = os.path.abspath(p)
+        if os.path.isfile(p):
+            if p not in _CACHE:
+                _CACHE[p] = _Field(p)
+            return _CACHE[p]
+    raise IOError("contour field file not found; looked in: " + "; ".join(cands))
 
 
 def fill_collector(result, collector, column, csv_path=None):
@@ -128,7 +157,12 @@ def fill_collector(result, collector, column, csv_path=None):
     """
     from System import Double        # noqa: F401  (.NET, present in Mechanical)
 
-    fld = load_field(csv_path)
+    wd = None
+    try:
+        wd = result.Analysis.WorkingDir
+    except Exception:
+        wd = None
+    fld = load_field(csv_path, working_dir=wd)
     try:
         mesh = result.Analysis.MeshData
     except Exception:

@@ -15,7 +15,7 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
 
 ## Status
 
-**Milestones 0–7 complete on 2025 R2.**
+**Milestones 0–8 complete on 2025 R2.**  **Want to run it? → [`docs/TRYING_IT.md`](docs/TRYING_IT.md).**
 
 - **M0** `python devtools/run_milestone0.py` — no human in Mechanical: detect
   Ansys → licence preflight → PyMechanical embedded → import STEP → static
@@ -57,9 +57,15 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
   tree. L-bracket corner: 41 nodes recovered (mean −10 %); plate-with-hole:
   nothing filtered.
 
-`pytest tests --run-benchmarks` green (101 unit + per-milestone mechanical
-tests). Tracker: [`docs/milestones.md`](docs/milestones.md). Next: **M8**
-convergence-visualisation charts (spec §39).
+- **M8** `python -m devtools.convergence_charts <study_dir>` — global (peak σ vs
+  h, vs element count, deformation vs h, reaction imbalance vs h) + per-region
+  (stress vs h, increment log-log, finite-vs-divergent model-fit overlay,
+  Nodal Fraction / energy error vs level) charts, each PNG **plus** its CSV.
+  `python -m devtools.extension_deployer` installs the extension into Ansys.
+
+`pytest tests --run-benchmarks` green (109 unit + per-milestone mechanical
+tests). Tracker: [`docs/milestones.md`](docs/milestones.md). Next: **M9** ACT
+ribbon: one "Run Singularity Study" button + wizard + progress UI.
 
 Working Ansys target on this machine: **2025 R2 / 252** (primary spec target
 2025 R1 / 251 is not installed — [`docs/ansys_environment.md`](docs/ansys_environment.md)).
