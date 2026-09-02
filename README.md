@@ -15,7 +15,7 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
 
 ## Status
 
-**Milestones 0–6 complete on 2025 R2.**
+**Milestones 0–7 complete on 2025 R2.**
 
 - **M0** `python devtools/run_milestone0.py` — no human in Mechanical: detect
   Ansys → licence preflight → PyMechanical embedded → import STEP → static
@@ -47,9 +47,19 @@ Keep a copy at `docs/SPEC.md` if you want it version-controlled.
   on the re-entrant edge (λ ≈ 0.46); plate-with-hole → "convergent",
   confidence 2.7, zero regions.**
 
-`pytest tests --run-benchmarks` green (82 unit + per-milestone mechanical
-tests). Tracker: [`docs/milestones.md`](docs/milestones.md). Next: **M7** custom
-Mechanical contours (Singularity Confidence [%] + Singularity-Filtered Stress).
+- **M7** `python -m devtools.build_contours <study_dir>` — the three fields on
+  the finest mesh: **Raw Stress** (byte-identical to the solver result),
+  **Singularity Confidence [%]** (0–100), **Singularity-Filtered Stress** (raw
+  where confidence < 70; a robust confidence-weighted neighbourhood estimate,
+  built only from converged donors, where ≥ 70; "Not Recoverable" rather than an
+  invented value). `extension/SingularityDetector.xml` + `visualization.py` are
+  the IronPython-2.7 `<evaluate>` callbacks that surface them in the Mechanical
+  tree. L-bracket corner: 41 nodes recovered (mean −10 %); plate-with-hole:
+  nothing filtered.
+
+`pytest tests --run-benchmarks` green (101 unit + per-milestone mechanical
+tests). Tracker: [`docs/milestones.md`](docs/milestones.md). Next: **M8**
+convergence-visualisation charts (spec §39).
 
 Working Ansys target on this machine: **2025 R2 / 252** (primary spec target
 2025 R1 / 251 is not installed — [`docs/ansys_environment.md`](docs/ansys_environment.md)).

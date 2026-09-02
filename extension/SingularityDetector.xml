@@ -1,0 +1,66 @@
+<!--
+  Ansys Mechanical ACT extension -- Automatic Stress Singularity Detection.
+
+  Milestone 7 scope: the three custom result contours (spec S35-S37). The
+  ribbon toolbar, study-settings wizard and progress UI arrive in Milestone 9;
+  the <evaluate> callbacks here delegate to extension/visualization.py, which
+  reads the fields precomputed by the external pipeline
+  (devtools/build_contours.py -> contour_fields.csv in the analysis working dir).
+
+  Runtime: IronPython 2.7 (Mechanical 2025 R1+).  GUID is stable for the life
+  of the extension -- do not change it.
+-->
+<extension version="1" minorversion="0" name="SingularityDetector">
+
+  <author>Mordechay Buzaglo</author>
+  <description>Automatic detection and characterisation of stress singularities via automated mesh-refinement convergence studies.</description>
+  <guid shortid="SingularityDetector">f27a27e0-ca49-4fa6-87f4-ef972a94c1d7</guid>
+
+  <script src="visualization.py" />
+
+  <interface context="Mechanical">
+    <images>images</images>
+    <toolbar name="Singularity Detector" caption="Singularity Detector">
+      <entry name="AddContours" icon="result">
+        <callbacks>
+          <onclick>add_singularity_contours</onclick>
+        </callbacks>
+      </entry>
+    </toolbar>
+  </interface>
+
+  <simdata context="Mechanical">
+
+    <!-- spec S36: the untouched solver result, always available for reference -->
+    <result name="Raw Stress -- Original FE Solution" version="1"
+            caption="Raw Stress -- Original FE Solution"
+            unit="Stress" icon="result" location="node" type="scalar">
+      <callbacks>
+        <evaluate>evaluate_raw_stress</evaluate>
+      </callbacks>
+      <property name="Geometry" caption="Geometry" control="scoping"></property>
+    </result>
+
+    <!-- spec S35: 0..100 engineering classification score -->
+    <result name="Singularity Confidence [%]" version="1"
+            caption="Singularity Confidence [%]"
+            unit="" icon="result" location="node" type="scalar">
+      <callbacks>
+        <evaluate>evaluate_singularity_confidence</evaluate>
+      </callbacks>
+      <property name="Geometry" caption="Geometry" control="scoping"></property>
+    </result>
+
+    <!-- spec S37: post-processing ESTIMATE -- never labelled true/correct/exact -->
+    <result name="Singularity-Filtered Stress" version="1"
+            caption="Singularity-Filtered Stress (estimate)"
+            unit="Stress" icon="result" location="node" type="scalar">
+      <callbacks>
+        <evaluate>evaluate_singularity_filtered_stress</evaluate>
+      </callbacks>
+      <property name="Geometry" caption="Geometry" control="scoping"></property>
+    </result>
+
+  </simdata>
+
+</extension>
